@@ -1,5 +1,19 @@
-export default function Home() {
+"use client";
+
+import { useRouter } from "next/navigation";
+import LoginForm from "./components/LoginForm";
+
+export default function App() {
+  const router = useRouter();
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    router.push("/dashboard");
+  };
+
   return (
-    <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10"></section>
+    <div>
+      <LoginForm />
+    </div>
   );
 }
