@@ -14,6 +14,8 @@ import {
   Menu,
   LogIn,
 } from "lucide-react";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 // Types
 interface Activity {
@@ -178,6 +180,12 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   extraContent,
 }) => {
   const currentTIme = useCurrentTime();
+  const { logout } = useAuth();
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+  }, [logout]);
+
   return (
     <section>
       <div className="gap-4 absolute">
@@ -225,6 +233,15 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
               className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
             >
               Check Out
+            </Button>
+            <Button
+              size="lg"
+              color="danger"
+              startContent={<LogOut size={20} />}
+              onClick={handleLogout}
+              className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
+            >
+              Logout
             </Button>
           </div>
         )}
@@ -319,6 +336,7 @@ const TimeTrackingDashboard: React.FC = () => {
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const { logout, user } = useAuth();
 
   // Timer logic
   const workTimer = useTimer(isCheckedIn && !isOnBreak);
@@ -367,7 +385,8 @@ const TimeTrackingDashboard: React.FC = () => {
     addActivity("checkout", "Ended work session");
   }, [addActivity]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    await logout();
     // Reset all state
     setIsCheckedIn(false);
     setIsOnBreak(false);
@@ -375,76 +394,78 @@ const TimeTrackingDashboard: React.FC = () => {
     setCheckInTime(null);
     workTimer.reset();
     breakTimer.reset();
-  }, [workTimer, breakTimer]);
+  }, [logout, workTimer, breakTimer]);
 
   return (
-    <div className="relative bg-[#111111] min-h-screen ">
-      <Image
-        alt="bg"
-        src="/bg-img.png"
-        className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
-        height={1080}
-        width={1080}
-      />
+    <ProtectedRoute>
+      <div className="relative bg-[#111111] min-h-screen ">
+        <Image
+          alt="bg"
+          src="/bg-img.png"
+          className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
+          height={1080}
+          width={1080}
+        />
 
-      <div className="relative z-10">
-        <header className="px-8 justify-between flex flex-row mb-8">
-          <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
-            <Menu size={36} />
-          </div>
-          <div>
-            <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-6">
-          <ActionButtons
-            extraContent
-            isOnBreak={isOnBreak}
-            isCheckedIn={isCheckedIn}
-            onCheckIn={handleCheckIn}
-            onBreak={handleBreak}
-            onCheckOut={handleCheckOut}
-          />
+        <div className="relative z-10">
+          <header className="px-8 justify-between flex flex-row mb-8">
+            <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
+              <Menu size={36} />
+            </div>
+            <div className="flex items-center gap-4">
+              <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
+            </div>
+          </header>
+          <main className="max-w-7xl mx-auto px-6">
+            <ActionButtons
+              extraContent
+              isOnBreak={isOnBreak}
+              isCheckedIn={isCheckedIn}
+              onCheckIn={handleCheckIn}
+              onBreak={handleBreak}
+              onCheckOut={handleCheckOut}
+            />
 
-          {isCheckedIn && (
-            <>
-              {/* Stats Cards */}
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatsCard
-                  title="Worked Hours"
-                  value={formatTime(workTimer.seconds)}
-                  subtitle="Today"
-                  color="primary"
-                />
-                <StatsCard
-                  title="Expected Hours"
-                  value={formatTime(expectedSeconds)}
-                  subtitle="Target for today"
-                  color="primary"
-                />
-                <StatsCard
-                  title="Break Hours"
-                  value={formatTimeShort(breakTimer.seconds)}
-                  subtitle="Total Breaks"
-                  color="primary"
-                />
-                <StatsCard
-                  title="Remaining Hours"
-                  value={formatTime(remainingSeconds)}
-                  subtitle="To reach target"
-                  color="primary"
-                />
-              </section>
+            {isCheckedIn && (
+              <>
+                {/* Stats Cards */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  <StatsCard
+                    title="Worked Hours"
+                    value={formatTime(workTimer.seconds)}
+                    subtitle="Today"
+                    color="primary"
+                  />
+                  <StatsCard
+                    title="Expected Hours"
+                    value={formatTime(expectedSeconds)}
+                    subtitle="Target for today"
+                    color="primary"
+                  />
+                  <StatsCard
+                    title="Break Hours"
+                    value={formatTimeShort(breakTimer.seconds)}
+                    subtitle="Total Breaks"
+                    color="primary"
+                  />
+                  <StatsCard
+                    title="Remaining Hours"
+                    value={formatTime(remainingSeconds)}
+                    subtitle="To reach target"
+                    color="primary"
+                  />
+                </section>
 
-              {/* Activity Table */}
-              <section>
-                <ActivityTable activities={activities} />
-              </section>
-            </>
-          )}
-        </main>
+                {/* Activity Table */}
+                <section>
+                  <ActivityTable activities={activities} />
+                </section>
+              </>
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 
