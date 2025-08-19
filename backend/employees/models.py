@@ -47,6 +47,7 @@ class Employee(models.Model):
         null=True
     )
     role = models.ForeignKey(JobRole, on_delete=models.CASCADE)
+    expected_hours = models.IntegerField(default=8, help_text="Expected working hours per day")
     
     # System fields (following authentication profile pattern)
     is_active = models.BooleanField(default=True)

@@ -31,7 +31,7 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'username', 'password', 'confirm_password',
             'first_name', 'last_name', 'address', 'manager', 
-            'profile_image', 'role'
+            'profile_image', 'role', 'expected_hours'
         ]
 
     def validate(self, attrs):
@@ -65,7 +65,7 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
         model = Employee
         fields = [
             'first_name', 'last_name', 'address', 'manager', 
-            'profile_image', 'role', 'is_active'
+            'profile_image', 'role', 'is_active', 'expected_hours'
         ]
 
 
@@ -82,7 +82,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'first_name', 'last_name', 'email', 'address', 
             'phone_number', 'manager', 'date_joined', 'profile_image', 
-            'role', 'department', 'is_active', 'created_at', 'updated_at', 'full_name'
+            'role', 'department', 'is_active', 'expected_hours', 'created_at', 'updated_at', 'full_name'
         ]
         read_only_fields = ['id', 'date_joined', 'created_at', 'updated_at']
     

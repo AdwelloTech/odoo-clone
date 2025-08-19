@@ -88,17 +88,18 @@ The Employee model follows the exact same pattern as the authentication profile:
 
 ### Employee Model
 
-| Field           | Type          | Description                 | Required             |
-| --------------- | ------------- | --------------------------- | -------------------- |
-| `user`          | OneToOneField | User account (auto-created) | Yes                  |
-| `first_name`    | CharField     | Employee's first name       | Yes                  |
-| `last_name`     | CharField     | Employee's last name        | Yes                  |
-| `address`       | TextField     | Home address                | No                   |
-| `manager`       | ForeignKey    | Manager (self-referential)  | No                   |
-| `date_joined`   | DateField     | Hire date (auto-set)        | Auto                 |
-| `profile_image` | ImageField    | Profile picture             | No                   |
-| `role`          | ForeignKey    | Job role                    | Yes                  |
-| `is_active`     | BooleanField  | Active status               | Auto (default: True) |
+| Field            | Type          | Description                 | Required             |
+| ---------------- | ------------- | --------------------------- | -------------------- |
+| `user`           | OneToOneField | User account (auto-created) | Yes                  |
+| `first_name`     | CharField     | Employee's first name       | Yes                  |
+| `last_name`      | CharField     | Employee's last name        | Yes                  |
+| `address`        | TextField     | Home address                | No                   |
+| `manager`        | ForeignKey    | Manager (self-referential)  | No                   |
+| `date_joined`    | DateField     | Hire date (auto-set)        | Auto                 |
+| `profile_image`  | ImageField    | Profile picture             | No                   |
+| `role`           | ForeignKey    | Job role                    | Yes                  |
+| `expected_hours` | IntegerField  | Expected hours per day      | No (default: 8)      |
+| `is_active`      | BooleanField  | Active status               | Auto (default: True) |
 
 ### User Model Fields (Auto-created)
 
@@ -157,7 +158,8 @@ POST /api/employees/create/
     "last_name": "Doe",
     "role": 1,
     "manager": 2,
-    "address": "123 Main St, New York, NY"
+    "address": "123 Main St, New York, NY",
+    "expected_hours": 8
 }
 ```
 
@@ -179,7 +181,8 @@ GET /api/employees/1/
 PATCH /api/employees/1/
 {
     "role": 2,
-    "manager": 3
+    "manager": 3,
+    "expected_hours": 7
 }
 ```
 

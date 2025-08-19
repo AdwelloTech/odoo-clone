@@ -22,7 +22,7 @@ class JobRoleAdmin(admin.ModelAdmin):
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
     list_display = [
-        'full_name', 'user_email', 'role', 'department', 'date_joined', 
+        'full_name', 'user_email', 'role', 'department', 'expected_hours', 'date_joined', 
         'is_active', 'manager_name'
     ]
     list_filter = [
@@ -42,7 +42,7 @@ class EmployeeAdmin(admin.ModelAdmin):
             'fields': ('first_name', 'last_name')
         }),
         ('Work Information', {
-            'fields': ('role', 'manager', 'date_joined')
+            'fields': ('role', 'manager', 'date_joined', 'expected_hours')
         }),
         ('Additional Information', {
             'fields': ('address', 'profile_image', 'is_active')
