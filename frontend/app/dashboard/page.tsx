@@ -345,6 +345,9 @@ const TimeTrackingDashboard: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [currentAttendance, setCurrentAttendance] =
     useState<AttendanceRecord | null>(null);
+  const [todayAttendances, setTodayAttendances] = useState<AttendanceRecord[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -400,6 +403,9 @@ const TimeTrackingDashboard: React.FC = () => {
         // Only fetch from backend on initial load
         const today = new Date().toISOString().split("T")[0];
         const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+        // Store today's attendance records
+        setTodayAttendances(todayAttendances);
 
         // Find the most recent active session for this employee
         const activeSession = todayAttendances.find(
@@ -575,6 +581,19 @@ const TimeTrackingDashboard: React.FC = () => {
                 }
               : null
           );
+
+          // Update today's attendances to reflect the checkout
+          setTodayAttendances((prev) =>
+            prev.map((att) =>
+              att.attendance_id === currentAttendance.attendance_id
+                ? {
+                    ...att,
+                    check_out_time: new Date().toISOString(),
+                    status: "Checked Out",
+                  }
+                : att
+            )
+          );
         }
       } else {
         // User is checking in (starting work or resuming from break)
@@ -592,6 +611,9 @@ const TimeTrackingDashboard: React.FC = () => {
           });
 
           setCurrentAttendance(newAttendance);
+
+          // Add to today's attendances
+          setTodayAttendances((prev) => [...prev, newAttendance]);
 
           // Now check in to the new record
           await attendanceAPI.checkIn(newAttendance.attendance_id);
@@ -706,6 +728,65 @@ const TimeTrackingDashboard: React.FC = () => {
     router.push("/attendance");
   }, [router]);
 
+  // Helper function to check if user has worked today
+  const hasWorkedToday = useCallback(() => {
+    return todayAttendances.length > 0;
+  }, [todayAttendances]);
+
+  // Helper function to calculate total hours worked today
+  const getTotalHoursWorkedToday = useCallback(() => {
+    if (todayAttendances.length === 0) return 0;
+
+    let totalHours = 0;
+
+    // Add hours from completed sessions
+    todayAttendances.forEach((attendance) => {
+      if (attendance.check_in_time && attendance.check_out_time) {
+        const checkIn = new Date(attendance.check_in_time);
+        const checkOut = new Date(attendance.check_out_time);
+        const duration = checkOut.getTime() - checkIn.getTime();
+        totalHours += duration / (1000 * 60 * 60);
+      }
+    });
+
+    // Add hours from current active session if user is checked in
+    if (isCheckedIn && checkInTime) {
+      const currentSessionHours =
+        (new Date().getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+      totalHours += currentSessionHours;
+    }
+
+    return totalHours;
+  }, [todayAttendances, isCheckedIn, checkInTime]);
+
+  // Helper function to calculate remaining hours to reach daily goal
+  const getRemainingHours = useCallback(() => {
+    const totalWorked = getTotalHoursWorkedToday();
+    const expectedHours = 8; // 8 hours daily goal
+    return Math.max(0, expectedHours - totalWorked);
+  }, [getTotalHoursWorkedToday]);
+
+  // Debug logging for empty state logic
+  useEffect(() => {
+    if (activities.length === 0) {
+      console.log("Empty state debug:", {
+        activitiesLength: activities.length,
+        hasWorkedToday: hasWorkedToday(),
+        todayAttendancesLength: todayAttendances.length,
+        totalHoursWorkedToday: getTotalHoursWorkedToday(),
+        isCheckedIn,
+        currentAttendance: !!currentAttendance,
+      });
+    }
+  }, [
+    activities.length,
+    hasWorkedToday,
+    todayAttendances.length,
+    getTotalHoursWorkedToday,
+    isCheckedIn,
+    currentAttendance,
+  ]);
+
   // Function to refresh attendance state from backend (useful when returning from other pages)
   const refreshAttendanceState = useCallback(async () => {
     if (!employeeId) return;
@@ -716,6 +797,9 @@ const TimeTrackingDashboard: React.FC = () => {
 
       const today = new Date().toISOString().split("T")[0];
       const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+      // Update today's attendances
+      setTodayAttendances(todayAttendances);
 
       const activeSession = todayAttendances.find(
         (att) =>
@@ -916,14 +1000,16 @@ const TimeTrackingDashboard: React.FC = () => {
               disabled={!employeeId}
             />
 
-            {/* Stats Cards - Show if there are activities today */}
-            {activities.length > 0 && (
+            {/* Stats Cards - Show if there are activities today OR if user has worked today */}
+            {(activities.length > 0 || hasWorkedToday()) && (
               <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatsCard
                   title="Worked Hours"
-                  value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
+                  value={`${getTotalHoursWorkedToday().toFixed(1)}h`}
                   subtitle="Today"
-                  color="primary"
+                  color={
+                    getTotalHoursWorkedToday() >= 8 ? "success" : "primary"
+                  }
                 />
                 <StatsCard
                   title="Expected Hours"
@@ -939,16 +1025,52 @@ const TimeTrackingDashboard: React.FC = () => {
                 /> */}
                 <StatsCard
                   title="Remaining Hours"
-                  value={formatTime(
-                    Math.max(
-                      0,
-                      expectedSeconds -
-                        calculateHoursFromActivities().totalHours * 3600
-                    )
-                  )}
+                  value={formatTime(getRemainingHours() * 3600)}
                   subtitle="To reach target"
-                  color="primary"
+                  color={getRemainingHours() === 0 ? "success" : "primary"}
                 />
+              </section>
+            )}
+
+            {/* Daily Progress Bar - Show if user has worked today */}
+            {hasWorkedToday() && (
+              <section className="mb-8">
+                <Card className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50">
+                  <CardBody className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-white">
+                        Daily Progress
+                      </h3>
+                      <span className="text-sm text-gray-400">
+                        {getTotalHoursWorkedToday().toFixed(1)}h / 8h
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full transition-all duration-500 ${
+                          getTotalHoursWorkedToday() >= 8
+                            ? "bg-green-500"
+                            : "bg-gradient-to-r from-[#FF6300] to-[#C23732]"
+                        }`}
+                        style={{
+                          width: `${Math.min(100, (getTotalHoursWorkedToday() / 8) * 100)}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-400">
+                      {getTotalHoursWorkedToday() >= 8 ? (
+                        <span className="text-green-400">
+                          🎉 Daily goal achieved!
+                        </span>
+                      ) : (
+                        <span>
+                          {getRemainingHours().toFixed(1)} hours remaining to
+                          reach your daily goal
+                        </span>
+                      )}
+                    </div>
+                  </CardBody>
+                </Card>
               </section>
             )}
 
@@ -1001,21 +1123,73 @@ const TimeTrackingDashboard: React.FC = () => {
             {activities.length === 0 && (
               <section className="text-center py-16">
                 <div className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50 rounded-lg p-8 max-w-md mx-auto">
-                  <Clock size={64} className="mx-auto mb-4 text-gray-500" />
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    Ready to Start Your Day?
-                  </h3>
-                  <p className="text-gray-400 mb-4">
-                    Click "Check In" to begin tracking your work hours and
-                    activities.
-                  </p>
-                  {!isInWorkSession && (
-                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                      <p className="text-blue-400 text-sm">
-                        💡 You can check in multiple times per day for breaks
-                        and different work sessions.
+                  {hasWorkedToday() ? (
+                    // User has worked today but no current activities
+                    <>
+                      <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                      {getTotalHoursWorkedToday() >= 8 ? (
+                        // User has met their daily goal
+                        <>
+                          <h3 className="text-xl font-semibold text-white mb-2">
+                            Great Work Today! 🎉
+                          </h3>
+                          <p className="text-gray-400 mb-4">
+                            You've completed your daily goal of 8 hours. You can
+                            check in again for overtime work if needed.
+                          </p>
+                        </>
+                      ) : (
+                        // User hasn't met their daily goal yet
+                        <>
+                          <h3 className="text-xl font-semibold text-white mb-2">
+                            Ready for Your Next Session?
+                          </h3>
+                          <p className="text-gray-400 mb-4">
+                            You've worked{" "}
+                            {getTotalHoursWorkedToday().toFixed(1)} hours today.
+                            {getRemainingHours() > 0 ? (
+                              <>
+                                {" "}
+                                Click "Check In" to continue working towards
+                                your daily goal. (
+                                {getRemainingHours().toFixed(1)} hours
+                                remaining)
+                              </>
+                            ) : (
+                              <>
+                                {" "}
+                                Great job! You've exceeded your daily goal. You
+                                can check in for overtime work.
+                              </>
+                            )}
+                          </p>
+                        </>
+                      )}
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-blue-400 text-sm">
+                          💡 You can check in multiple times per day for breaks
+                          and different work sessions.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    // User hasn't worked today at all
+                    <>
+                      <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                      <h3 className="text-xl font-semibold text-white mb-2">
+                        Ready to Start Your Day?
+                      </h3>
+                      <p className="text-gray-400 mb-4">
+                        Click "Check In" to begin tracking your work hours and
+                        activities.
                       </p>
-                    </div>
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-blue-400 text-sm">
+                          💡 You can check in multiple times per day for breaks
+                          and different work sessions.
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
               </section>
