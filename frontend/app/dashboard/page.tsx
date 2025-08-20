@@ -14,6 +14,7 @@ import {
   Menu,
   LogIn,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -380,7 +381,7 @@ const TimeTrackingDashboard: React.FC = () => {
     fetchEmployeeProfile();
   }, [user]);
 
-  // Load saved state from localStorage and sync with backend
+  // Load initial attendance state from backend (only once when component mounts)
   useEffect(() => {
     const loadInitialState = async () => {
       try {
@@ -396,12 +397,31 @@ const TimeTrackingDashboard: React.FC = () => {
           return;
         }
 
-        // Since we now allow multiple sessions per day, we don't need to load
-        // existing attendance records. Each session will create its own record.
-        // Just set the initial state to not checked in
-        setIsCheckedIn(false);
-        setCheckInTime(null);
-        setCurrentAttendance(null);
+        // Only fetch from backend on initial load
+        const today = new Date().toISOString().split("T")[0];
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+        // Find the most recent active session for this employee
+        const activeSession = todayAttendances.find(
+          (att) =>
+            att.employee === employeeId &&
+            att.check_in_time &&
+            !att.check_out_time
+        );
+
+        if (activeSession) {
+          // Restore the active session from backend
+          setCurrentAttendance(activeSession);
+          setIsCheckedIn(true);
+          setCheckInTime(new Date(activeSession.check_in_time!));
+
+          console.log("Found active session from backend:", activeSession);
+        } else {
+          // No active session, start fresh
+          setIsCheckedIn(false);
+          setCheckInTime(null);
+          setCurrentAttendance(null);
+        }
       } catch (error) {
         console.error("Error loading initial state:", error);
         setError("Failed to load attendance data. Please try again.");
@@ -415,49 +435,8 @@ const TimeTrackingDashboard: React.FC = () => {
     }
   }, [employeeId]);
 
-  // Save state to localStorage
-  useEffect(() => {
-    // Only save basic UI state, not attendance data
-    localStorage.setItem("isCheckedIn", isCheckedIn.toString());
-    if (checkInTime) {
-      localStorage.setItem("checkInTime", checkInTime.toISOString());
-    }
-  }, [isCheckedIn, checkInTime]);
-
-  // Real-time sync with backend every 30 seconds
-  useEffect(() => {
-    const syncWithBackend = async () => {
-      if (!currentAttendance || !employeeId) return;
-
-      try {
-        // Update attendance record with current status
-        const updateData: any = {};
-
-        if (isCheckedIn && checkInTime) {
-          updateData.check_in_time = checkInTime.toISOString();
-        }
-
-        if (!isCheckedIn && currentAttendance.check_in_time) {
-          updateData.check_out_time = new Date().toISOString();
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          const updatedAttendance = await attendanceAPI.updateAttendance(
-            currentAttendance.attendance_id,
-            updateData
-          );
-          setCurrentAttendance(updatedAttendance);
-        }
-      } catch (error) {
-        console.error("Error syncing with backend:", error);
-        setError("Failed to sync with backend. Changes saved locally.");
-      }
-    };
-
-    const interval = setInterval(syncWithBackend, 30000); // Sync every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [currentAttendance, employeeId, isCheckedIn, checkInTime]);
+  // Remove the 30-second sync interval since we don't need constant backend queries
+  // The state is managed locally and only synced when actions occur
 
   // Timer logic
   const workTimer = useTimer(isCheckedIn && !isOnBreak);
@@ -483,6 +462,25 @@ const TimeTrackingDashboard: React.FC = () => {
     },
     []
   );
+
+  // Restore activities when we have a restored session
+  useEffect(() => {
+    if (
+      isCheckedIn &&
+      checkInTime &&
+      currentAttendance &&
+      activities.length === 0
+    ) {
+      // We have a restored session but no activities, add the check-in activity
+      addActivity("checkin", "Resumed work session");
+    }
+  }, [
+    isCheckedIn,
+    checkInTime,
+    currentAttendance,
+    activities.length,
+    addActivity,
+  ]);
 
   // Calculate actual hours from activities
   const calculateHoursFromActivities = useCallback(() => {
@@ -564,6 +562,9 @@ const TimeTrackingDashboard: React.FC = () => {
           workTimer.reset();
           breakTimer.reset();
 
+          // Notify other tabs about the attendance change
+          localStorage.setItem("attendance_updated", Date.now().toString());
+
           // Update current attendance
           setCurrentAttendance((prev) =>
             prev
@@ -610,6 +611,9 @@ const TimeTrackingDashboard: React.FC = () => {
                 }
               : null
           );
+
+          // Notify other tabs about the attendance change
+          localStorage.setItem("attendance_updated", Date.now().toString());
         } catch (createError: any) {
           console.error("Error creating new attendance record:", createError);
           throw createError;
@@ -702,6 +706,143 @@ const TimeTrackingDashboard: React.FC = () => {
     router.push("/attendance");
   }, [router]);
 
+  // Function to refresh attendance state from backend (useful when returning from other pages)
+  const refreshAttendanceState = useCallback(async () => {
+    if (!employeeId) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+      const activeSession = todayAttendances.find(
+        (att) =>
+          att.employee === employeeId &&
+          att.check_in_time &&
+          !att.check_out_time
+      );
+
+      if (activeSession) {
+        // Only update state if it's different from current state
+        if (
+          !currentAttendance ||
+          currentAttendance.attendance_id !== activeSession.attendance_id ||
+          currentAttendance.check_in_time !== activeSession.check_in_time
+        ) {
+          setCurrentAttendance(activeSession);
+          setIsCheckedIn(true);
+          setCheckInTime(new Date(activeSession.check_in_time!));
+          console.log("Refreshed active session from backend:", activeSession);
+        } else {
+          console.log(
+            "Current session is already up to date, no state change needed"
+          );
+        }
+      } else {
+        // Only reset state if we currently have an active session
+        if (isCheckedIn || currentAttendance) {
+          setIsCheckedIn(false);
+          setCheckInTime(null);
+          setCurrentAttendance(null);
+          console.log("No active session found, state reset");
+        } else {
+          console.log("Already in correct state (not checked in)");
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing attendance state:", error);
+      setError("Failed to refresh attendance data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [employeeId, currentAttendance, isCheckedIn]);
+
+  // Function to manually invalidate cache and force refresh
+  const invalidateCache = useCallback(() => {
+    console.log("Manually invalidating cache...");
+    setCurrentAttendance(null);
+    setIsCheckedIn(false);
+    setCheckInTime(null);
+    // Trigger a refresh
+    setTimeout(() => {
+      if (employeeId) {
+        refreshAttendanceState();
+      }
+    }, 100);
+  }, [employeeId, refreshAttendanceState]);
+
+  // Validate and fix inconsistent states
+  useEffect(() => {
+    if (currentAttendance && isCheckedIn && !checkInTime) {
+      console.warn(
+        "Inconsistent state detected: attendance exists but no check-in time"
+      );
+      // Fix the inconsistent state
+      if (currentAttendance.check_in_time) {
+        setCheckInTime(new Date(currentAttendance.check_in_time));
+      } else {
+        // If no check-in time in attendance record, reset state
+        setIsCheckedIn(false);
+        setCurrentAttendance(null);
+      }
+    }
+
+    if (isCheckedIn && !currentAttendance) {
+      console.warn(
+        "Inconsistent state detected: checked in but no attendance record"
+      );
+      // Reset to consistent state
+      setIsCheckedIn(false);
+      setCheckInTime(null);
+    }
+  }, [currentAttendance, isCheckedIn, checkInTime]);
+
+  // Cache invalidation: Only refresh when we know there might be changes
+  // This replaces the tab focus refresh with a more intelligent approach
+  useEffect(() => {
+    // Set up a cache invalidation mechanism
+    const invalidateCache = () => {
+      // This will be called when we know the cache might be stale
+      console.log("Cache invalidated, will refresh on next need");
+    };
+
+    // Listen for storage events (if another tab makes changes)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "attendance_updated" && e.newValue) {
+        console.log("Attendance updated in another tab, invalidating cache");
+        // Clear current state to force refresh on next operation
+        setCurrentAttendance(null);
+        setIsCheckedIn(false);
+        setCheckInTime(null);
+      }
+    };
+
+    // Listen for visibility changes (when tab becomes visible)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && employeeId) {
+        // Only refresh if we don't have valid cached data
+        if (!currentAttendance || !checkInTime) {
+          console.log("Tab became visible and no cached data, refreshing...");
+          refreshAttendanceState();
+        } else {
+          console.log(
+            "Tab became visible with valid cached data, no refresh needed"
+          );
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [employeeId, currentAttendance, checkInTime, refreshAttendanceState]);
+
   return (
     <ProtectedRoute>
       <div className="relative bg-[#111111] min-h-screen ">
@@ -719,6 +860,17 @@ const TimeTrackingDashboard: React.FC = () => {
               <AppNavbar />
             </div>
             <div className="flex items-center gap-4">
+              <Button
+                size="sm"
+                color="primary"
+                variant="flat"
+                startContent={<RefreshCw size={16} />}
+                onPress={invalidateCache}
+                disabled={isLoading}
+                className="bg-blue-600/20 text-blue-400 border-blue-600/30 hover:bg-blue-600/30"
+              >
+                {isLoading ? "Syncing..." : "Refresh"}
+              </Button>
               <Image
                 src={"/logo.png"}
                 width={160}
