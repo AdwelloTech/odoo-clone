@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -288,6 +289,5 @@ const ProfilePage: React.FC = () => {
             </div>
         </section>
     );
-};
+=======
 
-export default ProfilePage;
