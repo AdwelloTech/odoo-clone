@@ -26,7 +26,12 @@ class JobRole(models.Model):
         ordering = ['department__name', 'name']
 
     def __str__(self):
-        return f"{self.name} - {self.department.name}"
+        try:
+            if self.department:
+                return f"{self.name} - {self.department.name}"
+            return self.name
+        except Exception:
+            return self.name
 
 
 class Employee(models.Model):
@@ -58,7 +63,12 @@ class Employee(models.Model):
         ordering = ['-date_joined']
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name} - {self.role.name}"
+        try:
+            if self.role:
+                return f"{self.first_name} {self.last_name} - {self.role.name}"
+            return f"{self.first_name} {self.last_name}"
+        except Exception:
+            return f"{self.first_name} {self.last_name}"
 
     @property
     def full_name(self):
@@ -66,13 +76,28 @@ class Employee(models.Model):
     
     @property
     def email(self):
-        return self.user.email
+        try:
+            if self.user:
+                return self.user.email
+            return 'No Email'
+        except Exception:
+            return 'No Email'
     
     @property
     def phone_number(self):
-        return self.user.phone_number
+        try:
+            if hasattr(self.user, 'phone_number'):
+                return self.user.phone_number
+            return 'No Phone'
+        except Exception:
+            return 'No Phone'
     
     @property
     def department(self):
-        return self.role.department
+        try:
+            if self.role and self.role.department:
+                return self.role.department
+            return None
+        except Exception:
+            return None
 

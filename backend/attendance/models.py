@@ -16,19 +16,40 @@ class Attendance(models.Model):
 
     class Meta:
         ordering = ['-date', '-created_at']
-        unique_together = ['employee', 'date']  # One attendance record per employee per day
+        # Removed unique constraint to allow multiple sessions per day
+        # unique_together = ['employee', 'date']  # One attendance record per employee per day
 
     def __str__(self):
-        return f"{self.employee.full_name} - {self.date} - {self.status}"
+        try:
+            if self.employee:
+                return f"{self.employee.full_name} - {self.date} - {self.status}"
+            return f"Unknown Employee - {self.date} - {self.status}"
+        except Exception:
+            return f"Unknown Employee - {self.date} - {self.status}"
     
     @property
     def employee_name(self):
-        return self.employee.full_name
+        try:
+            if self.employee:
+                return self.employee.full_name
+            return 'Unknown Employee'
+        except Exception:
+            return 'Unknown Employee'
     
     @property
     def employee_email(self):
-        return self.employee.email
+        try:
+            if self.employee:
+                return self.employee.email
+            return 'No Email'
+        except Exception:
+            return 'No Email'
     
     @property
     def department(self):
-        return self.employee.department.name if self.employee.department else 'N/A'
+        try:
+            if self.employee and self.employee.role and self.employee.role.department:
+                return self.employee.role.department.name
+            return 'N/A'
+        except Exception:
+            return 'N/A'

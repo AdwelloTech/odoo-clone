@@ -18,6 +18,10 @@ import {
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { attendanceAPI, AttendanceRecord } from "@/app/api/attendance";
+
+import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
+import AppNavbar from "@/components/navbar";
 
 // Types
 interface Activity {
@@ -44,10 +48,14 @@ interface HeaderProps {
 interface ActionButtonsProps {
   isOnBreak: boolean;
   isCheckedIn: boolean;
+  isLoading: boolean;
+  isInWorkSession: boolean;
   onCheckIn: () => void;
   onBreak: () => void;
   onAttendance: () => void;
+  onLogout?: () => void;
   extraContent: React.ReactNode;
+  disabled?: boolean;
 }
 
 interface ActivityTableProps {
@@ -176,17 +184,15 @@ const StatsCard: React.FC<StatsCardProps> = ({
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   isOnBreak,
   isCheckedIn,
+  isLoading,
+  isInWorkSession,
   onCheckIn,
   onBreak,
   onAttendance,
   extraContent,
+  disabled,
 }) => {
   const currentTIme = useCurrentTime();
-  const { logout } = useAuth();
-
-  const handleLogout = useCallback(async () => {
-    await logout();
-  }, [logout]);
 
   return (
     <section>
@@ -209,26 +215,27 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           color={isCheckedIn ? "danger" : "success"}
           startContent={isCheckedIn ? <LogOut size={20} /> : <Play size={20} />}
           onClick={onCheckIn}
-          className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
+          disabled={isLoading || disabled}
+          className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isCheckedIn ? "Check Out" : "Check In"}
+          {isLoading ? "Syncing..." : isCheckedIn ? "Check Out" : "Check In"}
         </Button>
 
         <div className="flex gap-3">
-          <Button
+          {/*<Button
             size="lg"
             color={isOnBreak ? "success" : "warning"}
             startContent={isOnBreak ? <Play size={20} /> : <Coffee size={20} />}
             onClick={onBreak}
-            disabled={!isCheckedIn}
+            disabled={!isCheckedIn || isLoading || disabled}
             className={`font-semibold text-xl ${
-              !isCheckedIn
+              !isCheckedIn || isLoading || disabled
                 ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                 : "bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600"
             }`}
           >
             {isOnBreak ? "End Break" : "Break"}
-          </Button>
+          </Button> */}
 
           <Button
             size="lg"
@@ -335,43 +342,122 @@ const TimeTrackingDashboard: React.FC = () => {
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const { logout, user } = useAuth();
+  const [currentAttendance, setCurrentAttendance] =
+    useState<AttendanceRecord | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load saved state from localStorage
+  // Check if user is currently in a work session
+  const isInWorkSession = Boolean(
+    currentAttendance &&
+      currentAttendance.check_in_time &&
+      !currentAttendance.check_out_time
+  );
+  const { user } = useAuth();
+  const [employeeProfile, setEmployeeProfile] =
+    useState<EmployeeProfile | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+
+  // Fetch current user's employee profile
   useEffect(() => {
-    const savedCheckIn = localStorage.getItem("isCheckedIn");
-    const savedCheckInTime = localStorage.getItem("checkInTime");
-    const savedActivities = localStorage.getItem("activities");
+    const fetchEmployeeProfile = async () => {
+      if (!user) return;
 
-    if (savedCheckIn === "true") {
-      setIsCheckedIn(true);
-    }
-    if (savedCheckInTime) {
-      setCheckInTime(new Date(savedCheckInTime));
-    }
-    if (savedActivities) {
       try {
-        const parsedActivities = JSON.parse(savedActivities).map(
-          (activity: any) => ({
-            ...activity,
-            timestamp: new Date(activity.timestamp),
-          })
-        );
-        setActivities(parsedActivities);
+        const profile = await employeeAPI.getCurrentUserProfile();
+        setEmployeeProfile(profile);
+        setEmployeeId(profile.id);
+        setError(null);
       } catch (error) {
-        console.error("Error parsing activities:", error);
+        console.error("Error fetching employee profile:", error);
+        setError(
+          "Employee profile not found. Please contact your administrator."
+        );
+        setEmployeeId(null);
       }
+    };
+
+    fetchEmployeeProfile();
+  }, [user]);
+
+  // Load saved state from localStorage and sync with backend
+  useEffect(() => {
+    const loadInitialState = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Check if we have a valid employee ID
+        if (!employeeId) {
+          setError(
+            "Employee profile not found. Please contact your administrator."
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        // Since we now allow multiple sessions per day, we don't need to load
+        // existing attendance records. Each session will create its own record.
+        // Just set the initial state to not checked in
+        setIsCheckedIn(false);
+        setCheckInTime(null);
+        setCurrentAttendance(null);
+      } catch (error) {
+        console.error("Error loading initial state:", error);
+        setError("Failed to load attendance data. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (employeeId) {
+      loadInitialState();
     }
-  }, []);
+  }, [employeeId]);
 
   // Save state to localStorage
   useEffect(() => {
+    // Only save basic UI state, not attendance data
     localStorage.setItem("isCheckedIn", isCheckedIn.toString());
     if (checkInTime) {
       localStorage.setItem("checkInTime", checkInTime.toISOString());
     }
-    localStorage.setItem("activities", JSON.stringify(activities));
-  }, [isCheckedIn, checkInTime, activities]);
+  }, [isCheckedIn, checkInTime]);
+
+  // Real-time sync with backend every 30 seconds
+  useEffect(() => {
+    const syncWithBackend = async () => {
+      if (!currentAttendance || !employeeId) return;
+
+      try {
+        // Update attendance record with current status
+        const updateData: any = {};
+
+        if (isCheckedIn && checkInTime) {
+          updateData.check_in_time = checkInTime.toISOString();
+        }
+
+        if (!isCheckedIn && currentAttendance.check_in_time) {
+          updateData.check_out_time = new Date().toISOString();
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const updatedAttendance = await attendanceAPI.updateAttendance(
+            currentAttendance.attendance_id,
+            updateData
+          );
+          setCurrentAttendance(updatedAttendance);
+        }
+      } catch (error) {
+        console.error("Error syncing with backend:", error);
+        setError("Failed to sync with backend. Changes saved locally.");
+      }
+    };
+
+    const interval = setInterval(syncWithBackend, 30000); // Sync every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentAttendance, employeeId, isCheckedIn, checkInTime]);
 
   // Timer logic
   const workTimer = useTimer(isCheckedIn && !isOnBreak);
@@ -439,22 +525,166 @@ const TimeTrackingDashboard: React.FC = () => {
     return { totalHours: Math.max(0, totalHours - breakHours), breakHours };
   }, [activities]);
 
-  const handleCheckIn = useCallback(() => {
-    if (isCheckedIn) {
-      // User is checking out
-      setIsCheckedIn(false);
-      setIsOnBreak(false);
-      setCheckInTime(null);
-      addActivity("checkout", "Ended work session");
-      workTimer.reset();
-      breakTimer.reset();
-    } else {
-      // User is checking in
-      setIsCheckedIn(true);
-      setCheckInTime(new Date());
-      addActivity("checkin", "Started work session");
+  const handleCheckIn = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Always ensure we have a valid employee ID
+      if (!employeeId) {
+        setError(
+          "Employee profile not found. Please contact your administrator."
+        );
+        return;
+      }
+
+      if (isCheckedIn) {
+        // User is checking out (for break or end of day)
+        if (currentAttendance) {
+          // Update backend
+          console.log(
+            "Attempting to check out with attendance ID:",
+            currentAttendance.attendance_id
+          );
+          console.log("Current attendance object:", currentAttendance);
+
+          if (!currentAttendance.attendance_id) {
+            throw new Error(
+              "Attendance ID is missing from current attendance record"
+            );
+          }
+
+          await attendanceAPI.checkOut(currentAttendance.attendance_id);
+
+          // Update local state
+          setIsCheckedIn(false);
+          setIsOnBreak(false);
+          setCheckInTime(null);
+          addActivity("checkout", "Ended work session");
+          workTimer.reset();
+          breakTimer.reset();
+
+          // Update current attendance
+          setCurrentAttendance((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  check_out_time: new Date().toISOString(),
+                  status: "Checked Out",
+                }
+              : null
+          );
+        }
+      } else {
+        // User is checking in (starting work or resuming from break)
+        // Create a new attendance record for this session
+        const today = new Date().toISOString().split("T")[0];
+
+        console.log("Creating new attendance record for new session");
+
+        try {
+          // Create new attendance record for this session
+          const newAttendance = await attendanceAPI.createAttendance({
+            employee: employeeId,
+            date: today,
+            status: "Checked In",
+          });
+
+          setCurrentAttendance(newAttendance);
+
+          // Now check in to the new record
+          await attendanceAPI.checkIn(newAttendance.attendance_id);
+
+          // Update local state
+          setIsCheckedIn(true);
+          setCheckInTime(new Date());
+          addActivity("checkin", "Started work session");
+
+          // Update current attendance
+          setCurrentAttendance((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  check_in_time: new Date().toISOString(),
+                  status: "Checked In",
+                }
+              : null
+          );
+        } catch (createError: any) {
+          console.error("Error creating new attendance record:", createError);
+          throw createError;
+        }
+      }
+    } catch (error) {
+      console.error("Error updating attendance:", error);
+
+      // Log more detailed error information
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+
+      // Log axios error details if available
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as any;
+        console.error("Response status:", axiosError.response?.status);
+        console.error("Response data:", axiosError.response?.data);
+        console.error("Response headers:", axiosError.response?.headers);
+      }
+
+      // Show more specific error message
+      let errorMessage = "Failed to update attendance. Please try again.";
+      if (error instanceof Error) {
+        if (error.message.includes("Attendance ID is missing")) {
+          errorMessage =
+            "Attendance record is corrupted. Please refresh the page.";
+        } else if (error.message.includes("Network")) {
+          errorMessage = "Network error. Please check your connection.";
+        } else if (error.message.includes("already exists")) {
+          errorMessage =
+            "Attendance record already exists. Please refresh the page.";
+        }
+      }
+
+      // Check for specific HTTP status codes
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.status === 500) {
+          errorMessage =
+            "Server error. Please check if the backend is running properly.";
+        } else if (axiosError.response?.status === 404) {
+          errorMessage = "Resource not found. Please refresh the page.";
+        } else if (axiosError.response?.status === 403) {
+          errorMessage = "Access denied. Please check your permissions.";
+        }
+      }
+
+      setError(errorMessage);
+
+      // Fallback to local state only
+      if (isCheckedIn) {
+        setIsCheckedIn(false);
+        setIsOnBreak(false);
+        setCheckInTime(null);
+        addActivity("checkout", "Ended work session");
+        workTimer.reset();
+        breakTimer.reset();
+      } else {
+        setIsCheckedIn(true);
+        setCheckInTime(new Date());
+        addActivity("checkin", "Started work session");
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [isCheckedIn, addActivity, workTimer, breakTimer]);
+  }, [
+    isCheckedIn,
+    currentAttendance,
+    addActivity,
+    workTimer,
+    breakTimer,
+    employeeId,
+  ]);
 
   const handleBreak = useCallback(() => {
     if (isOnBreak) {
@@ -472,113 +702,176 @@ const TimeTrackingDashboard: React.FC = () => {
     router.push("/attendance");
   }, [router]);
 
-  const handleLogout = useCallback(async () => {
-    await logout();
-    // Reset all state
-    setIsCheckedIn(false);
-    setIsOnBreak(false);
-    setActivities([]);
-    setCheckInTime(null);
-    workTimer.reset();
-    breakTimer.reset();
-    // Clear localStorage
-    localStorage.removeItem("isCheckedIn");
-    localStorage.removeItem("checkInTime");
-    localStorage.removeItem("activities");
-  }, [logout, workTimer, breakTimer]);
-
   return (
-    <div className="relative bg-[#111111] min-h-screen ">
-      <Image
-        alt="bg"
-        src="/bg-img.png"
-        className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
-        height={1080}
-        width={1080}
-      />
+    <ProtectedRoute>
+      <div className="relative bg-[#111111] min-h-screen ">
+        <Image
+          alt="bg"
+          src="/bg-img.png"
+          className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
+          height={1080}
+          width={1080}
+        />
 
-      <div className="relative z-10">
-        <header className="px-8 justify-between flex flex-row mb-8">
-          <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
-            <Menu size={36} />
-          </div>
-          <div className="flex items-center gap-4">
-            <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
-          </div>
-
-          {/* Status Indicator */}
-        </header>
-        <main className="max-w-7xl mx-auto px-6">
-          <ActionButtons
-            extraContent
-            isOnBreak={isOnBreak}
-            isCheckedIn={isCheckedIn}
-            onCheckIn={handleCheckIn}
-            onBreak={handleBreak}
-            onAttendance={handleAttendance}
-          />
-
-          {/* Stats Cards - Show if there are activities today */}
-          {activities.length > 0 && (
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatsCard
-                title="Worked Hours"
-                value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
-                subtitle="Today"
-                color="primary"
+        <div className="relative z-10">
+          <header className="px-8 justify-between flex flex-row mb-8">
+            <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
+              <AppNavbar />
+            </div>
+            <div className="flex items-center gap-4">
+              <Image
+                src={"/logo.png"}
+                width={160}
+                height={160}
+                alt="adwellow"
               />
-              <StatsCard
-                title="Expected Hours"
-                value={formatTime(expectedSeconds)}
-                subtitle="Target for today"
-                color="primary"
-              />
-              <StatsCard
-                title="Break Hours"
-                value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
-                subtitle="Total Breaks"
-                color="primary"
-              />
-              <StatsCard
-                title="Remaining Hours"
-                value={formatTime(
-                  Math.max(
-                    0,
-                    expectedSeconds -
-                      calculateHoursFromActivities().totalHours * 3600
-                  )
-                )}
-                subtitle="To reach target"
-                color="primary"
-              />
-            </section>
-          )}
+            </div>
+          </header>
+          <main className="max-w-7xl mx-auto px-6">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
 
-          {/* Activity Table - Always visible if there are activities */}
-          {activities.length > 0 && (
-            <section>
-              <ActivityTable activities={activities} />
-            </section>
-          )}
-
-          {/* Empty State - Show when no activities */}
-          {activities.length === 0 && (
-            <section className="text-center py-16">
-              <div className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50 rounded-lg p-8 max-w-md mx-auto">
-                <Clock size={64} className="mx-auto mb-4 text-gray-500" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  No Activities Today
-                </h3>
-                <p className="text-gray-400 mb-4">
-                  Start your day by checking in to track your work hours and
-                  activities.
+            {/* Employee Profile Not Found Message */}
+            {!employeeId && !error && (
+              <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-yellow-400 text-sm">
+                  Employee profile not found. Please contact your administrator
+                  to set up your employee profile.
                 </p>
               </div>
-            </section>
-          )}
-        </main>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-400 text-sm">Syncing with server...</p>
+              </div>
+            )}
+
+            <ActionButtons
+              extraContent
+              isOnBreak={isOnBreak}
+              isCheckedIn={isCheckedIn}
+              isLoading={isLoading}
+              isInWorkSession={isInWorkSession}
+              onCheckIn={handleCheckIn}
+              onBreak={handleBreak}
+              onAttendance={handleAttendance}
+              disabled={!employeeId}
+            />
+
+            {/* Stats Cards - Show if there are activities today */}
+            {activities.length > 0 && (
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <StatsCard
+                  title="Worked Hours"
+                  value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
+                  subtitle="Today"
+                  color="primary"
+                />
+                <StatsCard
+                  title="Expected Hours"
+                  value={formatTime(expectedSeconds)}
+                  subtitle="Target for today"
+                  color="primary"
+                />
+                {/*<StatsCard
+                  title="Break Hours"
+                  value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
+                  subtitle="Total Breaks"
+                  color="primary"
+                /> */}
+                <StatsCard
+                  title="Remaining Hours"
+                  value={formatTime(
+                    Math.max(
+                      0,
+                      expectedSeconds -
+                        calculateHoursFromActivities().totalHours * 3600
+                    )
+                  )}
+                  subtitle="To reach target"
+                  color="primary"
+                />
+              </section>
+            )}
+
+            {/* Current Session Status */}
+            {isInWorkSession && (
+              <section className="mb-8">
+                <Card className="bg-green-500/10 border-green-500/20 backdrop-blur-sm">
+                  <CardBody className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Play size={24} className="text-green-500" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">
+                            Active Work Session
+                          </h3>
+                          <p className="text-green-400 text-sm">
+                            Started at{" "}
+                            {checkInTime?.toLocaleTimeString("en-US", {
+                              hour12: false,
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-white">
+                          {formatTime(workTimer.seconds)}
+                        </div>
+                        <div className="text-green-400 text-sm">
+                          Current Session
+                        </div>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              </section>
+            )}
+
+            {/* Activity Table - Always visible if there are activities */}
+            {activities.length > 0 && (
+              <section>
+                <ActivityTable activities={activities} />
+              </section>
+            )}
+
+            {/* Empty State - Show when no activities */}
+            {activities.length === 0 && (
+              <section className="text-center py-16">
+                <div className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50 rounded-lg p-8 max-w-md mx-auto">
+                  <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    Ready to Start Your Day?
+                  </h3>
+                  <p className="text-gray-400 mb-4">
+                    Click "Check In" to begin tracking your work hours and
+                    activities.
+                  </p>
+                  {!isInWorkSession && (
+                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <p className="text-blue-400 text-sm">
+                        💡 You can check in multiple times per day for breaks
+                        and different work sessions.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 

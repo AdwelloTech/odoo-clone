@@ -20,4 +20,7 @@ urlpatterns = [
     path('employees/active/', views.employee_active, name='employee-active'),
     path('employees/inactive/', views.employee_inactive, name='employee-inactive'),
     path('employees/<int:pk>/reactivate/', views.employee_reactivate, name='employee-reactivate'),
+    
+    # Current user's employee profile
+    path('me/', views.current_user_employee_profile, name='current-user-employee-profile'),
 ]

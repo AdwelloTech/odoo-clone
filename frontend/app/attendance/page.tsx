@@ -20,6 +20,11 @@ import {
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import {
+  attendanceAPI,
+  AttendanceRecord as BackendAttendanceRecord,
+} from "@/app/api/attendance";
+import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
 
 // Types
 interface AttendanceRecord {
@@ -35,6 +40,21 @@ interface AttendanceRecord {
     time: string;
     description: string;
   }>;
+}
+
+// Backend attendance record interface
+interface BackendAttendanceData {
+  attendance_id: number;
+  employee: number;
+  employee_name: string;
+  employee_email: string;
+  department: string;
+  date: string;
+  status: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AttendancePageProps {}
@@ -264,6 +284,82 @@ const generateRealisticAttendanceData = (): AttendanceRecord[] => {
   }
 
   return records.reverse();
+};
+
+// Utility functions for backend data conversion
+const convertBackendToFrontend = (
+  backendData: BackendAttendanceData
+): AttendanceRecord => {
+  const checkIn = backendData.check_in_time
+    ? new Date(backendData.check_in_time).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const checkOut = backendData.check_out_time
+    ? new Date(backendData.check_out_time).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  let totalHours = 0;
+  if (backendData.check_in_time && backendData.check_out_time) {
+    const checkInTime = new Date(backendData.check_in_time);
+    const checkOutTime = new Date(backendData.check_out_time);
+    totalHours =
+      (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+  } else if (backendData.check_in_time) {
+    // If only checked in, calculate hours until now
+    const checkInTime = new Date(backendData.check_in_time);
+    const now = new Date();
+    totalHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+  }
+
+  const breakHours = 0; // Backend doesn't track breaks yet, so default to 0
+  const isOvertime = totalHours > 8;
+  const isShortHours = totalHours < 8;
+
+  return {
+    date: backendData.date,
+    checkIn,
+    checkOut,
+    totalHours,
+    breakHours,
+    isOvertime,
+    isShortHours,
+    activities: [], // Backend doesn't track activities yet, so default to empty
+  };
+};
+
+const calculateHoursFromBackend = (
+  backendData: BackendAttendanceData
+): {
+  totalHours: number;
+  breakHours: number;
+  isOvertime: boolean;
+  isShortHours: boolean;
+} => {
+  let totalHours = 0;
+  if (backendData.check_in_time && backendData.check_out_time) {
+    const checkInTime = new Date(backendData.check_in_time);
+    const checkOutTime = new Date(backendData.check_out_time);
+    totalHours =
+      (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+  } else if (backendData.check_in_time) {
+    // If only checked in, calculate hours until now
+    const checkInTime = new Date(backendData.check_in_time);
+    const now = new Date();
+    totalHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+  }
+
+  const breakHours = 0; // Backend doesn't track breaks yet
+  const isOvertime = totalHours > 8;
+  const isShortHours = totalHours < 8;
+
+  return { totalHours, breakHours, isOvertime, isShortHours };
 };
 
 // Generate weekly summary data
@@ -710,108 +806,161 @@ const MonthlyView: React.FC<{
 // Main Attendance Page Component
 const AttendancePage: React.FC<AttendancePageProps> = () => {
   const router = useRouter();
+  const { user } = useAuth();
+  const [employeeProfile, setEmployeeProfile] =
+    useState<EmployeeProfile | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [view, setView] = useState<"daily" | "weekly" | "monthly">("daily");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load attendance data from localStorage (from dashboard)
+  // Fetch current user's employee profile
   useEffect(() => {
-    const savedActivities = localStorage.getItem("activities");
-    const savedCheckIn = localStorage.getItem("isCheckedIn");
-    const savedCheckInTime = localStorage.getItem("checkInTime");
+    const fetchEmployeeProfile = async () => {
+      if (!user) return;
 
-    if (savedActivities) {
       try {
-        const activities = JSON.parse(savedActivities);
-        const isCheckedIn = savedCheckIn === "true";
+        const profile = await employeeAPI.getCurrentUserProfile();
+        setEmployeeProfile(profile);
+        setEmployeeId(profile.id);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching employee profile:", error);
+        setError(
+          "Employee profile not found. Please contact your administrator."
+        );
+        setEmployeeId(null);
+      }
+    };
 
-        // Convert dashboard activities to attendance format with proper calculations
-        const today = new Date();
-        const todayString = getDateString(today);
+    fetchEmployeeProfile();
+  }, [user]);
 
-        // Calculate actual hours from activities (same logic as dashboard)
-        let totalHours = 0;
-        let breakHours = 0;
-        let isOvertime = false;
-        let isShortHours = false;
+  // Load attendance data from backend API
+  useEffect(() => {
+    const loadAttendanceData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-        if (activities.length > 0) {
-          const checkInActivity = activities.find(
-            (a: any) => a.type === "checkin"
+        // Check if we have a valid employee ID
+        if (!employeeId) {
+          setError(
+            "Employee profile not found. Please contact your administrator."
           );
-          const checkOutActivity = activities.find(
-            (a: any) => a.type === "checkout"
-          );
-
-          if (checkInActivity) {
-            const checkInTime = new Date(checkInActivity.timestamp);
-            const checkOutTime = checkOutActivity
-              ? new Date(checkOutActivity.timestamp)
-              : new Date();
-
-            // Calculate total hours worked
-            const totalMs = checkOutTime.getTime() - checkInTime.getTime();
-            const rawTotalHours = totalMs / (1000 * 60 * 60);
-
-            // Calculate break hours
-            let breakMs = 0;
-            let breakStartTime: Date | null = null;
-
-            for (const activity of activities) {
-              if (activity.type === "break_start") {
-                breakStartTime = new Date(activity.timestamp);
-              } else if (activity.type === "break_end" && breakStartTime) {
-                breakMs +=
-                  new Date(activity.timestamp).getTime() -
-                  breakStartTime.getTime();
-                breakStartTime = null;
-              }
-            }
-
-            // If break is still ongoing, add current break time
-            if (breakStartTime && isCheckedIn) {
-              breakMs += new Date().getTime() - breakStartTime.getTime();
-            }
-
-            breakHours = breakMs / (1000 * 60 * 60);
-            totalHours = Math.max(0, rawTotalHours - breakHours);
-
-            // Determine overtime/short hours
-            isOvertime = totalHours > 8;
-            isShortHours = totalHours < 8;
-          }
+          setIsLoading(false);
+          return;
         }
 
-        const record: AttendanceRecord = {
-          date: todayString,
-          checkIn:
-            activities.find((a: any) => a.type === "checkin")?.time || null,
-          checkOut:
-            activities.find((a: any) => a.type === "checkout")?.time || null,
-          totalHours: totalHours,
-          breakHours: breakHours,
-          isOvertime: isOvertime,
-          isShortHours: isShortHours,
-          activities: activities.map((a: any) => ({
-            type: a.type,
-            time: a.time,
-            description: a.description,
-          })),
-        };
+        // Get today's attendance from backend
+        // Since we now allow multiple sessions per day, we'll get all today's records
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+        const myTodayAttendances = todayAttendances.filter(
+          (record) => record.employee === employeeId
+        );
 
-        // Generate realistic data for past dates
-        const pastData = generateRealisticAttendanceData();
-        setAttendanceData([record, ...pastData]);
+        // Convert backend data to frontend format
+        // For multiple sessions, we'll show the most recent one as "today's record"
+        const todayRecord =
+          myTodayAttendances.length > 0
+            ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
+            : {
+                date: getDateString(new Date()),
+                checkIn: null,
+                checkOut: null,
+                totalHours: 0,
+                breakHours: 0,
+                isOvertime: false,
+                isShortHours: false,
+                activities: [],
+              };
+
+        // Get historical data from backend (last 90 days)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 90);
+
+        const historicalData = await attendanceAPI.getAttendanceByDateRange(
+          startDate.toISOString().split("T")[0],
+          endDate.toISOString().split("T")[0]
+        );
+
+        // Convert all backend records to frontend format
+        // Now we can have multiple records per day, so we don't filter by employee
+        const convertedRecords = historicalData.map(convertBackendToFrontend);
+
+        // Combine today's record with historical data
+        const allRecords = [
+          todayRecord,
+          ...convertedRecords.filter((r) => r.date !== todayRecord.date),
+        ];
+
+        setAttendanceData(allRecords);
       } catch (error) {
-        console.error("Error loading attendance data:", error);
-        // Fallback to realistic data
-        setAttendanceData(generateRealisticAttendanceData());
+        console.error("Error loading attendance data from backend:", error);
+        setError(
+          "Failed to load attendance data from server. Please try again."
+        );
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      // Fallback to realistic data
-      setAttendanceData(generateRealisticAttendanceData());
+    };
+
+    if (employeeId) {
+      loadAttendanceData();
     }
-  }, []);
+  }, [employeeId]);
+
+  // Real-time sync with backend every 30 seconds
+  useEffect(() => {
+    const syncWithBackend = async () => {
+      if (!employeeId) return;
+
+      try {
+        // Get today's attendance from backend
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+        const myTodayAttendances = todayAttendances.filter(
+          (record) => record.employee === employeeId
+        );
+
+        // Update today's record if it exists
+        setAttendanceData((prev) => {
+          const todayString = getDateString(new Date());
+          const todayRecord =
+            myTodayAttendances.length > 0
+              ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
+              : {
+                  date: todayString,
+                  checkIn: null,
+                  checkOut: null,
+                  totalHours: 0,
+                  breakHours: 0,
+                  isOvertime: false,
+                  isShortHours: false,
+                  activities: [],
+                };
+
+          const existingIndex = prev.findIndex((r) => r.date === todayString);
+          if (existingIndex >= 0) {
+            const updated = [...prev];
+            updated[existingIndex] = todayRecord;
+            return updated;
+          } else {
+            return [todayRecord, ...prev];
+          }
+        });
+      } catch (error) {
+        console.error("Error syncing with backend:", error);
+        // Don't show error for background sync
+      }
+    };
+
+    const interval = setInterval(syncWithBackend, 30000); // Sync every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [employeeId]);
 
   const navigateDate = (direction: "prev" | "next") => {
     const newDate = new Date(selectedDate);
@@ -834,116 +983,20 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
   // Real-time update from dashboard
   useEffect(() => {
     const handleStorageChange = () => {
-      const savedActivities = localStorage.getItem("activities");
-      const savedCheckIn = localStorage.getItem("isCheckedIn");
+      // Since we're now using backend data, we don't need localStorage updates
+      // This function can be simplified or removed
+    };
 
-      if (savedActivities) {
-        try {
-          const activities = JSON.parse(savedActivities);
-          const isCheckedIn = savedCheckIn === "true";
-
-          // Update today's record with fresh data
-          const today = new Date();
-          const todayString = getDateString(today);
-
-          // Calculate actual hours from activities
-          let totalHours = 0;
-          let breakHours = 0;
-          let isOvertime = false;
-          let isShortHours = false;
-
-          if (activities.length > 0) {
-            const checkInActivity = activities.find(
-              (a: any) => a.type === "checkin"
-            );
-            const checkOutActivity = activities.find(
-              (a: any) => a.type === "checkout"
-            );
-
-            if (checkInActivity) {
-              const checkInTime = new Date(checkInActivity.timestamp);
-              const checkOutTime = checkOutActivity
-                ? new Date(checkOutActivity.timestamp)
-                : new Date();
-
-              // Calculate total hours worked
-              const totalMs = checkOutTime.getTime() - checkInTime.getTime();
-              const rawTotalHours = totalMs / (1000 * 60 * 60);
-
-              // Calculate break hours
-              let breakMs = 0;
-              let breakStartTime: Date | null = null;
-
-              for (const activity of activities) {
-                if (activity.type === "break_start") {
-                  breakStartTime = new Date(activity.timestamp);
-                } else if (activity.type === "break_end" && breakStartTime) {
-                  breakMs +=
-                    new Date(activity.timestamp).getTime() -
-                    breakStartTime.getTime();
-                  breakStartTime = null;
-                }
-              }
-
-              // If break is still ongoing, add current break time
-              if (breakStartTime && isCheckedIn) {
-                breakMs += new Date().getTime() - breakStartTime.getTime();
-              }
-
-              breakHours = breakMs / (1000 * 60 * 60);
-              totalHours = Math.max(0, rawTotalHours - breakHours);
-
-              // Determine overtime/short hours
-              isOvertime = totalHours > 8;
-              isShortHours = totalHours < 8;
-            }
-          }
-
-          const updatedRecord: AttendanceRecord = {
-            date: todayString,
-            checkIn:
-              activities.find((a: any) => a.type === "checkin")?.time || null,
-            checkOut:
-              activities.find((a: any) => a.type === "checkout")?.time || null,
-            totalHours: totalHours,
-            breakHours: breakHours,
-            isOvertime: isOvertime,
-            isShortHours: isShortHours,
-            activities: activities.map((a: any) => ({
-              type: a.type,
-              time: a.time,
-              description: a.description,
-            })),
-          };
-
-          // Update the attendance data with fresh record
-          setAttendanceData((prev) => {
-            const existingIndex = prev.findIndex((r) => r.date === todayString);
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              updated[existingIndex] = updatedRecord;
-              return updated;
-            } else {
-              return [updatedRecord, ...prev];
-            }
-          });
-        } catch (error) {
-          console.error("Error updating attendance data:", error);
-        }
+    // For now, just sync with backend periodically
+    const interval = setInterval(() => {
+      if (employeeId) {
+        // Trigger a sync with backend
+        // This will update the attendance data from the server
       }
-    };
+    }, 30000); // Sync every 30 seconds
 
-    // Listen for storage changes
-    window.addEventListener("storage", handleStorageChange);
-
-    // Also check for changes every second to catch local updates
-    const interval = setInterval(handleStorageChange, 1000);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [employeeId]);
 
   return (
     <ProtectedRoute>
@@ -986,6 +1039,32 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
           </header>
 
           <main className="max-w-7xl mx-auto px-6 pb-8">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Employee Profile Not Found Message */}
+            {!employeeId && !error && (
+              <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-yellow-400 text-sm">
+                  Employee profile not found. Please contact your administrator
+                  to set up your employee profile.
+                </p>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-400 text-sm">
+                  Loading attendance data...
+                </p>
+              </div>
+            )}
+
             {/* Today's Summary Cards */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-white mb-4">
