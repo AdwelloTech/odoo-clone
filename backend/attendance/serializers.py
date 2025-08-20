@@ -9,11 +9,6 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
             'employee', 'date', 'status', 'check_in_time', 'check_out_time'
         ]
 
-    def validate(self, attrs):
-        # Check if attendance record already exists for this employee on this date
-        if Attendance.objects.filter(employee=attrs['employee'], date=attrs['date']).exists():
-            raise serializers.ValidationError("Attendance record already exists for this employee on this date.")
-        return attrs
 
 
 class AttendanceUpdateSerializer(serializers.ModelSerializer):

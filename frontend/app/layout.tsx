@@ -8,6 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
+import AppNavbar from "@/components/navbar";
+import ClientLayout from "./components/ClientLayout";
 
 export const metadata: Metadata = {
   title: {
@@ -42,7 +44,7 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <main>{children}</main>
+          <ClientLayout>{children}</ClientLayout>
         </AuthProvider>
       </body>
     </html>

@@ -100,17 +100,8 @@ export const attendanceAPI = {
     employeeId: number
   ): Promise<AttendanceRecord> {
     try {
-      // First try to get today's attendance
-      const todayAttendances = await this.getTodayAttendance();
-      const todayAttendance = todayAttendances.find(
-        (att) => att.employee === employeeId
-      );
-
-      if (todayAttendance) {
-        return todayAttendance;
-      }
-
-      // If no attendance record exists, create one
+      // Since we now allow multiple sessions per day, we'll create a new record
+      // instead of trying to find an existing one
       const today = new Date().toISOString().split("T")[0];
       const newAttendance = await this.createAttendance({
         employee: employeeId,

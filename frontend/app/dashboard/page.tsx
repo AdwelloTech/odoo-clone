@@ -19,7 +19,9 @@ import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { attendanceAPI, AttendanceRecord } from "@/app/api/attendance";
-import { logout as logoutAPI } from "@/app/api/auth";
+
+import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
+import AppNavbar from "@/components/navbar";
 
 // Types
 interface Activity {
@@ -51,7 +53,7 @@ interface ActionButtonsProps {
   onCheckIn: () => void;
   onBreak: () => void;
   onAttendance: () => void;
-  onLogout: () => void;
+  onLogout?: () => void;
   extraContent: React.ReactNode;
   disabled?: boolean;
 }
@@ -187,7 +189,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   onCheckIn,
   onBreak,
   onAttendance,
-  onLogout,
   extraContent,
   disabled,
 }) => {
@@ -221,7 +222,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         </Button>
 
         <div className="flex gap-3">
-          <Button
+          {/*<Button
             size="lg"
             color={isOnBreak ? "success" : "warning"}
             startContent={isOnBreak ? <Play size={20} /> : <Coffee size={20} />}
@@ -234,7 +235,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             }`}
           >
             {isOnBreak ? "End Break" : "Break"}
-          </Button>
+          </Button> */}
 
           <Button
             size="lg"
@@ -352,39 +353,32 @@ const TimeTrackingDashboard: React.FC = () => {
       currentAttendance.check_in_time &&
       !currentAttendance.check_out_time
   );
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
+  const [employeeProfile, setEmployeeProfile] =
+    useState<EmployeeProfile | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
 
-  // Get employee ID from user (we need to map user ID to employee ID)
-  // For now, using a simple mapping since we know test@example.com maps to employee ID 1
-  const getEmployeeId = (user: any): number | null => {
-    if (!user) return null;
+  // Fetch current user's employee profile
+  useEffect(() => {
+    const fetchEmployeeProfile = async () => {
+      if (!user) return;
 
-    // Debug: log the user email to see what we're working with
-    console.log("User email:", user.email);
+      try {
+        const profile = await employeeAPI.getCurrentUserProfile();
+        setEmployeeProfile(profile);
+        setEmployeeId(profile.id);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching employee profile:", error);
+        setError(
+          "Employee profile not found. Please contact your administrator."
+        );
+        setEmployeeId(null);
+      }
+    };
 
-    // Simple mapping for now - in production, this should come from the backend
-    if (user.email === "test@example.com") return 1;
-    if (user.email === "admin@example.com") return 1;
-    if (user.email === "farhat@example.com") return 1; // Add your email here
-    if (user.email === "ta@2.com") return 1; // Add your actual email here
-    if (user.email === "user@example.com") return 1; // Add more emails as needed
-
-    // If email contains certain patterns, map to employee ID 1
-    if (
-      user.email.includes("test") ||
-      user.email.includes("admin") ||
-      user.email.includes("farhat") ||
-      user.email.includes("ta@2.com")
-    ) {
-      return 1;
-    }
-
-    // Default fallback - but we need to handle this case
-    console.log("No employee ID mapping found for email:", user.email);
-    return null;
-  };
-
-  const employeeId = getEmployeeId(user);
+    fetchEmployeeProfile();
+  }, [user]);
 
   // Load saved state from localStorage and sync with backend
   useEffect(() => {
@@ -402,111 +396,15 @@ const TimeTrackingDashboard: React.FC = () => {
           return;
         }
 
-        // Try to get today's attendance from backend
-        const todayAttendance =
-          await attendanceAPI.getOrCreateTodayAttendance(employeeId);
-        setCurrentAttendance(todayAttendance);
-
-        // Check if user is currently in a work session based on backend data
-        if (todayAttendance.check_in_time && !todayAttendance.check_out_time) {
-          // User is currently checked in and working
-          setIsCheckedIn(true);
-          setCheckInTime(new Date(todayAttendance.check_in_time));
-
-          // Load activities from localStorage as fallback
-          const savedActivities = localStorage.getItem("activities");
-          if (savedActivities) {
-            try {
-              const parsedActivities = JSON.parse(savedActivities).map(
-                (activity: any) => ({
-                  ...activity,
-                  timestamp: new Date(activity.timestamp),
-                })
-              );
-              setActivities(parsedActivities);
-            } catch (error) {
-              console.error("Error parsing activities:", error);
-            }
-          }
-        } else if (
-          todayAttendance.check_in_time &&
-          todayAttendance.check_out_time
-        ) {
-          // User has completed a work session but can start a new one
-          setIsCheckedIn(false);
-          setCheckInTime(null);
-
-          // Load activities from localStorage as fallback
-          const savedActivities = localStorage.getItem("activities");
-          if (savedActivities) {
-            try {
-              const parsedActivities = JSON.parse(savedActivities).map(
-                (activity: any) => ({
-                  ...activity,
-                  timestamp: new Date(activity.timestamp),
-                })
-              );
-              setActivities(parsedActivities);
-            } catch (error) {
-              console.error("Error parsing activities:", error);
-            }
-          }
-        } else {
-          // Load saved state from localStorage as fallback
-          const savedCheckIn = localStorage.getItem("isCheckedIn");
-          const savedCheckInTime = localStorage.getItem("checkInTime");
-          const savedActivities = localStorage.getItem("activities");
-
-          if (savedCheckIn === "true") {
-            setIsCheckedIn(true);
-          }
-          if (savedCheckInTime) {
-            setCheckInTime(new Date(savedCheckInTime));
-          }
-          if (savedActivities) {
-            try {
-              const parsedActivities = JSON.parse(savedActivities).map(
-                (activity: any) => ({
-                  ...activity,
-                  timestamp: new Date(activity.timestamp),
-                })
-              );
-              setActivities(parsedActivities);
-            } catch (error) {
-              console.error("Error parsing activities:", error);
-            }
-          }
-        }
+        // Since we now allow multiple sessions per day, we don't need to load
+        // existing attendance records. Each session will create its own record.
+        // Just set the initial state to not checked in
+        setIsCheckedIn(false);
+        setCheckInTime(null);
+        setCurrentAttendance(null);
       } catch (error) {
         console.error("Error loading initial state:", error);
-        setError(
-          "Failed to load attendance data. Using local data as fallback."
-        );
-
-        // Fallback to localStorage
-        const savedCheckIn = localStorage.getItem("isCheckedIn");
-        const savedCheckInTime = localStorage.getItem("checkInTime");
-        const savedActivities = localStorage.getItem("activities");
-
-        if (savedCheckIn === "true") {
-          setIsCheckedIn(true);
-        }
-        if (savedCheckInTime) {
-          setCheckInTime(new Date(savedCheckInTime));
-        }
-        if (savedActivities) {
-          try {
-            const parsedActivities = JSON.parse(savedActivities).map(
-              (activity: any) => ({
-                ...activity,
-                timestamp: new Date(activity.timestamp),
-              })
-            );
-            setActivities(parsedActivities);
-          } catch (error) {
-            console.error("Error parsing activities:", error);
-          }
-        }
+        setError("Failed to load attendance data. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -519,12 +417,12 @@ const TimeTrackingDashboard: React.FC = () => {
 
   // Save state to localStorage
   useEffect(() => {
+    // Only save basic UI state, not attendance data
     localStorage.setItem("isCheckedIn", isCheckedIn.toString());
     if (checkInTime) {
       localStorage.setItem("checkInTime", checkInTime.toISOString());
     }
-    localStorage.setItem("activities", JSON.stringify(activities));
-  }, [isCheckedIn, checkInTime, activities]);
+  }, [isCheckedIn, checkInTime]);
 
   // Real-time sync with backend every 30 seconds
   useEffect(() => {
@@ -632,36 +530,12 @@ const TimeTrackingDashboard: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Always ensure we have a current attendance record for today
-      if (!currentAttendance) {
-        // Try to get or create today's attendance record
-        if (!employeeId) {
-          setError(
-            "Employee profile not found. Please contact your administrator."
-          );
-          return;
-        }
-
-        console.log(
-          "No current attendance, getting or creating today's record..."
+      // Always ensure we have a valid employee ID
+      if (!employeeId) {
+        setError(
+          "Employee profile not found. Please contact your administrator."
         );
-        const todayAttendance =
-          await attendanceAPI.getOrCreateTodayAttendance(employeeId);
-        setCurrentAttendance(todayAttendance);
-
-        // Update the local variable for this function
-        const updatedAttendance = todayAttendance;
-
-        if (
-          updatedAttendance.check_in_time &&
-          !updatedAttendance.check_out_time
-        ) {
-          // User is already checked in, this shouldn't happen
-          console.log("User is already checked in, updating local state");
-          setIsCheckedIn(true);
-          setCheckInTime(new Date(updatedAttendance.check_in_time));
-          return;
-        }
+        return;
       }
 
       if (isCheckedIn) {
@@ -703,71 +577,23 @@ const TimeTrackingDashboard: React.FC = () => {
         }
       } else {
         // User is checking in (starting work or resuming from break)
-        if (currentAttendance) {
-          // If there's already a check-out time, we need a new session
-          if (currentAttendance.check_out_time) {
-            console.log(
-              "Previous session completed, creating new session for today"
-            );
+        // Create a new attendance record for this session
+        const today = new Date().toISOString().split("T")[0];
 
-            // Try to create a new attendance record for today
-            const today = new Date().toISOString().split("T")[0];
-            if (!employeeId) {
-              setError(
-                "Employee profile not found. Please contact your administrator."
-              );
-              return;
-            }
+        console.log("Creating new attendance record for new session");
 
-            try {
-              // Try to create a new record
-              const newAttendance = await attendanceAPI.createAttendance({
-                employee: employeeId,
-                date: today,
-                status: "Checked In",
-              });
-              setCurrentAttendance(newAttendance);
+        try {
+          // Create new attendance record for this session
+          const newAttendance = await attendanceAPI.createAttendance({
+            employee: employeeId,
+            date: today,
+            status: "Checked In",
+          });
 
-              // Now check in to the new record
-              await attendanceAPI.checkIn(newAttendance.attendance_id);
-            } catch (createError: any) {
-              // If creation fails due to "already exists", try to get the existing record
-              if (
-                createError.response?.status === 400 &&
-                createError.response?.data?.errors?.non_field_errors?.includes(
-                  "already exists"
-                )
-              ) {
-                console.log(
-                  "Attendance record already exists, fetching it instead"
-                );
-                const existingAttendance =
-                  await attendanceAPI.getOrCreateTodayAttendance(employeeId);
-                setCurrentAttendance(existingAttendance);
+          setCurrentAttendance(newAttendance);
 
-                // Try to check in to the existing record
-                await attendanceAPI.checkIn(existingAttendance.attendance_id);
-              } else {
-                // Re-throw other errors
-                throw createError;
-              }
-            }
-          } else {
-            // Just check in to the existing record
-            console.log(
-              "Attempting to check in with attendance ID:",
-              currentAttendance.attendance_id
-            );
-            console.log("Current attendance object:", currentAttendance);
-
-            if (!currentAttendance.attendance_id) {
-              throw new Error(
-                "Attendance ID is missing from current attendance record"
-              );
-            }
-
-            await attendanceAPI.checkIn(currentAttendance.attendance_id);
-          }
+          // Now check in to the new record
+          await attendanceAPI.checkIn(newAttendance.attendance_id);
 
           // Update local state
           setIsCheckedIn(true);
@@ -784,6 +610,9 @@ const TimeTrackingDashboard: React.FC = () => {
                 }
               : null
           );
+        } catch (createError: any) {
+          console.error("Error creating new attendance record:", createError);
+          throw createError;
         }
       }
     } catch (error) {
@@ -873,36 +702,6 @@ const TimeTrackingDashboard: React.FC = () => {
     router.push("/attendance");
   }, [router]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      // Get refresh token from localStorage
-      const refreshToken = localStorage.getItem("refresh");
-      if (refreshToken) {
-        await logoutAPI(refreshToken);
-      }
-    } catch (error) {
-      console.error("Logout API error:", error);
-      // Continue with logout even if API call fails
-    }
-
-    // Reset all state
-    setIsCheckedIn(false);
-    setIsOnBreak(false);
-    setActivities([]);
-    setCheckInTime(null);
-    workTimer.reset();
-    breakTimer.reset();
-    // Clear localStorage
-    localStorage.removeItem("isCheckedIn");
-    localStorage.removeItem("checkInTime");
-    localStorage.removeItem("activities");
-    localStorage.removeItem("token");
-    localStorage.removeItem("refresh");
-
-    // Call the context logout to update auth state
-    logout();
-  }, [logout, workTimer, breakTimer]);
-
   return (
     <ProtectedRoute>
       <div className="relative bg-[#111111] min-h-screen ">
@@ -917,33 +716,16 @@ const TimeTrackingDashboard: React.FC = () => {
         <div className="relative z-10">
           <header className="px-8 justify-between flex flex-row mb-8">
             <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
-              <Menu size={36} />
+              <AppNavbar />
             </div>
             <div className="flex items-center gap-4">
-              <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
-              <Button
-                size="sm"
-                color="danger"
-                variant="flat"
-                startContent={<LogOut size={16} />}
-                onPress={handleLogout}
-                className="bg-red-600/20 text-red-400 border-red-600/30 hover:bg-red-600/30"
-              >
-                Logout
-              </Button>
+              <Image
+                src={"/logo.png"}
+                width={160}
+                height={160}
+                alt="adwellow"
+              />
             </div>
-
-            {/* Status Indicator */}
-            {isInWorkSession && (
-              <div className="flex items-center gap-3 pt-8">
-                <div className="px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">
-                  Work Session Active
-                </div>
-                <div className="text-white text-sm">
-                  Currently tracking work hours
-                </div>
-              </div>
-            )}
           </header>
           <main className="max-w-7xl mx-auto px-6">
             {/* Error Display */}
@@ -979,13 +761,12 @@ const TimeTrackingDashboard: React.FC = () => {
               onCheckIn={handleCheckIn}
               onBreak={handleBreak}
               onAttendance={handleAttendance}
-              onLogout={handleLogout}
               disabled={!employeeId}
             />
 
             {/* Stats Cards - Show if there are activities today */}
             {activities.length > 0 && (
-              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatsCard
                   title="Worked Hours"
                   value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
@@ -998,12 +779,12 @@ const TimeTrackingDashboard: React.FC = () => {
                   subtitle="Target for today"
                   color="primary"
                 />
-                <StatsCard
+                {/*<StatsCard
                   title="Break Hours"
                   value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
                   subtitle="Total Breaks"
                   color="primary"
-                />
+                /> */}
                 <StatsCard
                   title="Remaining Hours"
                   value={formatTime(

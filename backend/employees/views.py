@@ -146,3 +146,35 @@ def employee_reactivate(request, pk):
         return Response({
             'message': 'Employee not found'
         }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user_employee_profile(request):
+    """Get the current authenticated user's employee profile"""
+    try:
+        # Get the employee profile for the current authenticated user
+        employee = Employee.objects.get(user=request.user)
+        
+        if not employee.is_active:
+            return Response({
+                'message': 'Employee profile is inactive',
+                'error': 'Your employee profile has been deactivated'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = EmployeeProfileSerializer(employee)
+        return Response({
+            'message': 'Employee profile retrieved successfully',
+            'employee': serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except Employee.DoesNotExist:
+        return Response({
+            'message': 'Employee profile not found',
+            'error': 'No employee profile exists for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'message': 'Error retrieving employee profile',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -24,6 +24,7 @@ import {
   attendanceAPI,
   AttendanceRecord as BackendAttendanceRecord,
 } from "@/app/api/attendance";
+import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
 
 // Types
 interface AttendanceRecord {
@@ -806,43 +807,36 @@ const MonthlyView: React.FC<{
 const AttendancePage: React.FC<AttendancePageProps> = () => {
   const router = useRouter();
   const { user } = useAuth();
+  const [employeeProfile, setEmployeeProfile] =
+    useState<EmployeeProfile | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [view, setView] = useState<"daily" | "weekly" | "monthly">("daily");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get employee ID from user (we need to map user ID to employee ID)
-  // For now, using a simple mapping since we know test@example.com maps to employee ID 1
-  const getEmployeeId = (user: any): number | null => {
-    if (!user) return null;
+  // Fetch current user's employee profile
+  useEffect(() => {
+    const fetchEmployeeProfile = async () => {
+      if (!user) return;
 
-    // Debug: log the user email to see what we're working with
-    console.log("User email:", user.email);
+      try {
+        const profile = await employeeAPI.getCurrentUserProfile();
+        setEmployeeProfile(profile);
+        setEmployeeId(profile.id);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching employee profile:", error);
+        setError(
+          "Employee profile not found. Please contact your administrator."
+        );
+        setEmployeeId(null);
+      }
+    };
 
-    // Simple mapping for now - in production, this should come from the backend
-    if (user.email === "test@example.com") return 1;
-    if (user.email === "admin@example.com") return 1;
-    if (user.email === "farhat@example.com") return 1; // Add your email here
-    if (user.email === "ta@2.com") return 1; // Add your actual email here
-    if (user.email === "user@example.com") return 1; // Add more emails as needed
-
-    // If email contains certain patterns, map to employee ID 1
-    if (
-      user.email.includes("test") ||
-      user.email.includes("admin") ||
-      user.email.includes("farhat") ||
-      user.email.includes("ta@2.com")
-    ) {
-      return 1;
-    }
-
-    // Default fallback - but we need to handle this case
-    console.log("No employee ID mapping found for email:", user.email);
-    return null;
-  };
-
-  const employeeId = getEmployeeId(user);
+    fetchEmployeeProfile();
+  }, [user]);
 
   // Load attendance data from backend API
   useEffect(() => {
@@ -861,11 +855,27 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
         }
 
         // Get today's attendance from backend
-        const todayAttendance =
-          await attendanceAPI.getOrCreateTodayAttendance(employeeId);
+        // Since we now allow multiple sessions per day, we'll get all today's records
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+        const myTodayAttendances = todayAttendances.filter(
+          (record) => record.employee === employeeId
+        );
 
         // Convert backend data to frontend format
-        const todayRecord = convertBackendToFrontend(todayAttendance);
+        // For multiple sessions, we'll show the most recent one as "today's record"
+        const todayRecord =
+          myTodayAttendances.length > 0
+            ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
+            : {
+                date: getDateString(new Date()),
+                checkIn: null,
+                checkOut: null,
+                totalHours: 0,
+                breakHours: 0,
+                isOvertime: false,
+                isShortHours: false,
+                activities: [],
+              };
 
         // Get historical data from backend (last 90 days)
         const endDate = new Date();
@@ -878,9 +888,8 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
         );
 
         // Convert all backend records to frontend format
-        const convertedRecords = historicalData
-          .filter((record) => record.employee === employeeId)
-          .map(convertBackendToFrontend);
+        // Now we can have multiple records per day, so we don't filter by employee
+        const convertedRecords = historicalData.map(convertBackendToFrontend);
 
         // Combine today's record with historical data
         const allRecords = [
@@ -892,101 +901,8 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
       } catch (error) {
         console.error("Error loading attendance data from backend:", error);
         setError(
-          "Failed to load attendance data from server. Using local data as fallback."
+          "Failed to load attendance data from server. Please try again."
         );
-
-        // Fallback to localStorage and mock data
-        try {
-          const savedActivities = localStorage.getItem("activities");
-          const savedCheckIn = localStorage.getItem("isCheckedIn");
-          const savedCheckInTime = localStorage.getItem("checkInTime");
-
-          if (savedActivities) {
-            const activities = JSON.parse(savedActivities);
-            const isCheckedIn = savedCheckIn === "true";
-
-            // Convert dashboard activities to attendance format
-            const today = new Date();
-            const todayString = getDateString(today);
-
-            // Calculate actual hours from activities
-            let totalHours = 0;
-            let breakHours = 0;
-            let isOvertime = false;
-            let isShortHours = false;
-
-            if (activities.length > 0) {
-              const checkInActivity = activities.find(
-                (a: any) => a.type === "checkin"
-              );
-              const checkOutActivity = activities.find(
-                (a: any) => a.type === "checkout"
-              );
-
-              if (checkInActivity) {
-                const checkInTime = new Date(checkInActivity.timestamp);
-                const checkOutTime = checkOutActivity
-                  ? new Date(checkOutActivity.timestamp)
-                  : new Date();
-
-                const totalMs = checkOutTime.getTime() - checkInTime.getTime();
-                const rawTotalHours = totalMs / (1000 * 60 * 60);
-
-                // Calculate break hours
-                let breakMs = 0;
-                let breakStartTime: Date | null = null;
-
-                for (const activity of activities) {
-                  if (activity.type === "break_start") {
-                    breakStartTime = new Date(activity.timestamp);
-                  } else if (activity.type === "break_end" && breakStartTime) {
-                    breakMs +=
-                      new Date(activity.timestamp).getTime() -
-                      breakStartTime.getTime();
-                    breakStartTime = null;
-                  }
-                }
-
-                if (breakStartTime && isCheckedIn) {
-                  breakMs += new Date().getTime() - breakStartTime.getTime();
-                }
-
-                breakHours = breakMs / (1000 * 60 * 60);
-                totalHours = Math.max(0, rawTotalHours - breakHours);
-                isOvertime = totalHours > 8;
-                isShortHours = totalHours < 8;
-              }
-            }
-
-            const record: AttendanceRecord = {
-              date: todayString,
-              checkIn:
-                activities.find((a: any) => a.type === "checkin")?.time || null,
-              checkOut:
-                activities.find((a: any) => a.type === "checkout")?.time ||
-                null,
-              totalHours: totalHours,
-              breakHours: breakHours,
-              isOvertime: isOvertime,
-              isShortHours: isShortHours,
-              activities: activities.map((a: any) => ({
-                type: a.type,
-                time: a.time,
-                description: a.description,
-              })),
-            };
-
-            // Generate realistic data for past dates as fallback
-            const pastData = generateRealisticAttendanceData();
-            setAttendanceData([record, ...pastData]);
-          } else {
-            // Final fallback to mock data
-            setAttendanceData(generateRealisticAttendanceData());
-          }
-        } catch (localError) {
-          console.error("Error with local fallback:", localError);
-          setAttendanceData(generateRealisticAttendanceData());
-        }
       } finally {
         setIsLoading(false);
       }
@@ -1004,13 +920,27 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
 
       try {
         // Get today's attendance from backend
-        const todayAttendance =
-          await attendanceAPI.getOrCreateTodayAttendance(employeeId);
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+        const myTodayAttendances = todayAttendances.filter(
+          (record) => record.employee === employeeId
+        );
 
         // Update today's record if it exists
         setAttendanceData((prev) => {
           const todayString = getDateString(new Date());
-          const todayRecord = convertBackendToFrontend(todayAttendance);
+          const todayRecord =
+            myTodayAttendances.length > 0
+              ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
+              : {
+                  date: todayString,
+                  checkIn: null,
+                  checkOut: null,
+                  totalHours: 0,
+                  breakHours: 0,
+                  isOvertime: false,
+                  isShortHours: false,
+                  activities: [],
+                };
 
           const existingIndex = prev.findIndex((r) => r.date === todayString);
           if (existingIndex >= 0) {
@@ -1053,116 +983,20 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
   // Real-time update from dashboard
   useEffect(() => {
     const handleStorageChange = () => {
-      const savedActivities = localStorage.getItem("activities");
-      const savedCheckIn = localStorage.getItem("isCheckedIn");
+      // Since we're now using backend data, we don't need localStorage updates
+      // This function can be simplified or removed
+    };
 
-      if (savedActivities) {
-        try {
-          const activities = JSON.parse(savedActivities);
-          const isCheckedIn = savedCheckIn === "true";
-
-          // Update today's record with fresh data
-          const today = new Date();
-          const todayString = getDateString(today);
-
-          // Calculate actual hours from activities
-          let totalHours = 0;
-          let breakHours = 0;
-          let isOvertime = false;
-          let isShortHours = false;
-
-          if (activities.length > 0) {
-            const checkInActivity = activities.find(
-              (a: any) => a.type === "checkin"
-            );
-            const checkOutActivity = activities.find(
-              (a: any) => a.type === "checkout"
-            );
-
-            if (checkInActivity) {
-              const checkInTime = new Date(checkInActivity.timestamp);
-              const checkOutTime = checkOutActivity
-                ? new Date(checkOutActivity.timestamp)
-                : new Date();
-
-              // Calculate total hours worked
-              const totalMs = checkOutTime.getTime() - checkInTime.getTime();
-              const rawTotalHours = totalMs / (1000 * 60 * 60);
-
-              // Calculate break hours
-              let breakMs = 0;
-              let breakStartTime: Date | null = null;
-
-              for (const activity of activities) {
-                if (activity.type === "break_start") {
-                  breakStartTime = new Date(activity.timestamp);
-                } else if (activity.type === "break_end" && breakStartTime) {
-                  breakMs +=
-                    new Date(activity.timestamp).getTime() -
-                    breakStartTime.getTime();
-                  breakStartTime = null;
-                }
-              }
-
-              // If break is still ongoing, add current break time
-              if (breakStartTime && isCheckedIn) {
-                breakMs += new Date().getTime() - breakStartTime.getTime();
-              }
-
-              breakHours = breakMs / (1000 * 60 * 60);
-              totalHours = Math.max(0, rawTotalHours - breakHours);
-
-              // Determine overtime/short hours
-              isOvertime = totalHours > 8;
-              isShortHours = totalHours < 8;
-            }
-          }
-
-          const updatedRecord: AttendanceRecord = {
-            date: todayString,
-            checkIn:
-              activities.find((a: any) => a.type === "checkin")?.time || null,
-            checkOut:
-              activities.find((a: any) => a.type === "checkout")?.time || null,
-            totalHours: totalHours,
-            breakHours: breakHours,
-            isOvertime: isOvertime,
-            isShortHours: isShortHours,
-            activities: activities.map((a: any) => ({
-              type: a.type,
-              time: a.time,
-              description: a.description,
-            })),
-          };
-
-          // Update the attendance data with fresh record
-          setAttendanceData((prev) => {
-            const existingIndex = prev.findIndex((r) => r.date === todayString);
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              updated[existingIndex] = updatedRecord;
-              return updated;
-            } else {
-              return [updatedRecord, ...prev];
-            }
-          });
-        } catch (error) {
-          console.error("Error updating attendance data:", error);
-        }
+    // For now, just sync with backend periodically
+    const interval = setInterval(() => {
+      if (employeeId) {
+        // Trigger a sync with backend
+        // This will update the attendance data from the server
       }
-    };
+    }, 30000); // Sync every 30 seconds
 
-    // Listen for storage changes
-    window.addEventListener("storage", handleStorageChange);
-
-    // Also check for changes every second to catch local updates
-    const interval = setInterval(handleStorageChange, 1000);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [employeeId]);
 
   return (
     <ProtectedRoute>

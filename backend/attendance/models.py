@@ -16,7 +16,8 @@ class Attendance(models.Model):
 
     class Meta:
         ordering = ['-date', '-created_at']
-        unique_together = ['employee', 'date']  # One attendance record per employee per day
+        # Removed unique constraint to allow multiple sessions per day
+        # unique_together = ['employee', 'date']  # One attendance record per employee per day
 
     def __str__(self):
         try:
