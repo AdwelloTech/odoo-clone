@@ -177,4 +177,26 @@ export const attendanceAPI = {
     })
     return response.data
   },
+  
+  getCurrentAttendanceStatus: async () => {
+    const response = await api.get('/api/attendance/current-status/')
+    return response.data
+  },
+  
+  startBreak: async (attendanceId: number, breakType: string = 'Regular') => {
+    const response = await api.post(`/api/attendance/${attendanceId}/start-break/`, {
+      break_type: breakType
+    })
+    return response.data
+  },
+  
+  endBreak: async (attendanceId: number) => {
+    const response = await api.post(`/api/attendance/${attendanceId}/end-break/`)
+    return response.data
+  },
+  
+  getAttendanceBreaks: async (attendanceId: number) => {
+    const response = await api.get(`/api/attendance/${attendanceId}/breaks/`)
+    return response.data
+  },
 }

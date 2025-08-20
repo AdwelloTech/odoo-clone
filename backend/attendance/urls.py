@@ -13,8 +13,14 @@ urlpatterns = [
     path('<int:attendance_id>/check-in/', views.check_in, name='attendance-check-in'),
     path('<int:attendance_id>/check-out/', views.check_out, name='attendance-check-out'),
     
+    # Break management endpoints
+    path('<int:attendance_id>/start-break/', views.start_break, name='attendance-start-break'),
+    path('<int:attendance_id>/end-break/', views.end_break, name='attendance-end-break'),
+    path('<int:attendance_id>/breaks/', views.attendance_breaks, name='attendance-breaks'),
+    
     # Query endpoints
     path('employee/<int:employee_id>/', views.attendance_by_employee, name='attendance-by-employee'),
     path('date-range/', views.attendance_by_date_range, name='attendance-by-date-range'),
     path('today/', views.today_attendance, name='today-attendance'),
+    path('current-status/', views.current_attendance_status, name='current-attendance-status'),
 ]

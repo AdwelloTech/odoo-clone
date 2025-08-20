@@ -53,3 +53,61 @@ class Attendance(models.Model):
             return 'N/A'
         except Exception:
             return 'N/A'
+    
+    @property
+    def is_on_break(self):
+        """Check if employee is currently on break"""
+        return self.breaks.filter(break_end_time__isnull=True).exists()
+    
+    @property
+    def current_break(self):
+        """Get the current active break if any"""
+        return self.breaks.filter(break_end_time__isnull=True).first()
+    
+    @property
+    def total_break_minutes(self):
+        """Calculate total break time in minutes for this attendance session"""
+        total_minutes = 0
+        for break_instance in self.breaks.filter(break_end_time__isnull=False):
+            duration_seconds = (break_instance.break_end_time - break_instance.break_start_time).total_seconds()
+            total_minutes += int(duration_seconds // 60)
+        return total_minutes
+
+
+class Break(models.Model):
+    """Model to track breaks during an attendance session"""
+    break_id = models.AutoField(primary_key=True)
+    attendance = models.ForeignKey(Attendance, on_delete=models.CASCADE, related_name='breaks')
+    break_start_time = models.DateTimeField()
+    break_end_time = models.DateTimeField(null=True, blank=True)
+    break_type = models.CharField(max_length=50, default='Regular')  # Regular, Lunch, etc.
+    
+    # System fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-break_start_time']
+
+    def __str__(self):
+        try:
+            duration = ""
+            if self.break_end_time:
+                duration_seconds = (self.break_end_time - self.break_start_time).total_seconds()
+                duration = f" ({int(duration_seconds // 60)}min)"
+            return f"Break for {self.attendance.employee_name} - {self.break_start_time.strftime('%H:%M')}{duration}"
+        except Exception:
+            return f"Break {self.break_id}"
+    
+    @property
+    def duration_minutes(self):
+        """Get break duration in minutes"""
+        if not self.break_end_time:
+            return None
+        duration_seconds = (self.break_end_time - self.break_start_time).total_seconds()
+        return int(duration_seconds // 60)
+    
+    @property
+    def is_active(self):
+        """Check if break is currently active (not ended)"""
+        return self.break_end_time is None

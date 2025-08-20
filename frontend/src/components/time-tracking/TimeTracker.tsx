@@ -21,6 +21,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
   const [currentAttendanceId, setCurrentAttendanceId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [startTime, setStartTime] = useState<Date | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // Timer effect
   useEffect(() => {
@@ -45,6 +46,40 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
   useEffect(() => {
     onStatusChange?.(status)
   }, [status, onStatusChange])
+
+  // Check for existing attendance session on mount
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      if (!employee) {
+        setIsInitializing(false)
+        return
+      }
+
+      try {
+        const response = await attendanceAPI.getCurrentAttendanceStatus()
+        
+        if (response.is_clocked_in && response.attendance) {
+          const attendance = response.attendance
+          const checkInTime = new Date(attendance.check_in_time)
+          const now = new Date()
+          const elapsed = Math.floor((now.getTime() - checkInTime.getTime()) / 1000)
+          
+          // Restore the timer state
+          setCurrentAttendanceId(attendance.attendance_id)
+          // Set status based on break state
+          setStatus(response.is_on_break ? 'break' : 'working')
+          setStartTime(checkInTime)
+          setTimeElapsed(elapsed)
+        }
+      } catch (error) {
+        console.error('Failed to check existing attendance session:', error)
+      } finally {
+        setIsInitializing(false)
+      }
+    }
+
+    checkExistingSession()
+  }, [employee])
 
   const handleClockIn = async () => {
     if (!employee) return
@@ -83,6 +118,15 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
 
     setIsLoading(true)
     try {
+      // End any active break before clocking out
+      if (status === 'break') {
+        try {
+          await attendanceAPI.endBreak(currentAttendanceId)
+        } catch (error) {
+          console.warn('Failed to end break before clocking out:', error)
+        }
+      }
+      
       await attendanceAPI.checkOut(currentAttendanceId)
       setStatus('idle')
       setCurrentAttendanceId(null)
@@ -95,8 +139,25 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
     }
   }
 
-  const handleBreak = () => {
-    setStatus(status === 'break' ? 'working' : 'break')
+  const handleBreak = async () => {
+    if (!currentAttendanceId) return
+
+    setIsLoading(true)
+    try {
+      if (status === 'break') {
+        // End break
+        await attendanceAPI.endBreak(currentAttendanceId)
+        setStatus('working')
+      } else {
+        // Start break
+        await attendanceAPI.startBreak(currentAttendanceId)
+        setStatus('break')
+      }
+    } catch (error) {
+      console.error('Failed to toggle break:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getStatusColor = () => {
@@ -181,7 +242,16 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
 
         {/* Action Buttons */}
         <div className="flex flex-col space-y-3">
-          {status === 'idle' ? (
+          {isInitializing ? (
+            <Button
+              disabled={true}
+              size="lg"
+              className="w-full"
+              variant="default"
+            >
+              Loading...
+            </Button>
+          ) : status === 'idle' ? (
             <Button
               onClick={handleClockIn}
               disabled={isLoading}
