@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'authentication',
+    'attendance',
+    'employees',
 ]
 
 MIDDLEWARE = [
@@ -169,3 +171,7 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True  # Only for development
 CORS_ALLOW_CREDENTIALS = True
+
+# Media files configuration for profile images
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

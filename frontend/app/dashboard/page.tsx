@@ -13,9 +13,11 @@ import {
   HamburgerIcon,
   Menu,
   LogIn,
+  Calendar,
 } from "lucide-react";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 // Types
 interface Activity {
@@ -44,7 +46,7 @@ interface ActionButtonsProps {
   isCheckedIn: boolean;
   onCheckIn: () => void;
   onBreak: () => void;
-  onCheckOut: () => void;
+  onAttendance: () => void;
   extraContent: React.ReactNode;
 }
 
@@ -86,7 +88,7 @@ const useCurrentTime = () => {
     const updateTime = () => {
       const now = new Date();
       const timeString = now.toLocaleTimeString("en-US", {
-        hour12: true,
+        hour12: false,
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
@@ -117,7 +119,7 @@ const formatTimeShort = (seconds: number): string => {
 const getCurrentTimeString = (): string => {
   const now = new Date();
   return now.toLocaleTimeString("en-US", {
-    hour12: true,
+    hour12: false,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -176,7 +178,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   isCheckedIn,
   onCheckIn,
   onBreak,
-  onCheckOut,
+  onAttendance,
   extraContent,
 }) => {
   const currentTIme = useCurrentTime();
@@ -202,49 +204,42 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         </div>
       </div>
       <div className="flex gap-3 justify-end mb-8">
-        {!isCheckedIn ? (
+        <Button
+          size="lg"
+          color={isCheckedIn ? "danger" : "success"}
+          startContent={isCheckedIn ? <LogOut size={20} /> : <Play size={20} />}
+          onClick={onCheckIn}
+          className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
+        >
+          {isCheckedIn ? "Check Out" : "Check In"}
+        </Button>
+
+        <div className="flex gap-3">
           <Button
             size="lg"
-            color="success"
-            startContent={<Play size={20} />}
-            onClick={onCheckIn}
-            className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
+            color={isOnBreak ? "success" : "warning"}
+            startContent={isOnBreak ? <Play size={20} /> : <Coffee size={20} />}
+            onClick={onBreak}
+            disabled={!isCheckedIn}
+            className={`font-semibold text-xl ${
+              !isCheckedIn
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600"
+            }`}
           >
-            Check In
+            {isOnBreak ? "End Break" : "Break"}
           </Button>
-        ) : (
-          <div className="flex gap-3">
-            <Button
-              size="lg"
-              color={isOnBreak ? "success" : "warning"}
-              startContent={
-                isOnBreak ? <Play size={20} /> : <Coffee size={20} />
-              }
-              onClick={onBreak}
-              className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
-            >
-              {isOnBreak ? "End Break" : "Break"}
-            </Button>
-            <Button
-              size="lg"
-              color="danger"
-              startContent={<LogOut size={20} />}
-              onClick={onCheckOut}
-              className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
-            >
-              Check Out
-            </Button>
-            <Button
-              size="lg"
-              color="danger"
-              startContent={<LogOut size={20} />}
-              onClick={handleLogout}
-              className=" bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
-            >
-              Logout
-            </Button>
-          </div>
-        )}
+
+          <Button
+            size="lg"
+            color="primary"
+            startContent={<Calendar size={20} />}
+            onClick={onAttendance}
+            className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-semibold text-xl"
+          >
+            Attendance
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -294,9 +289,12 @@ const ActivityTable: React.FC<ActivityTableProps> = ({ activities }) => {
 
         <div className="space-y-3 max-h-100 overflow-y-auto">
           {activities.length === 0 ? (
-            <div className="text-center py-8 text-[#FF6300]">
+            <div className="text-center py-8 text-gray-400">
               <Clock size={48} className="mx-auto mb-2 text-gray-600" />
               <p>No activities recorded today</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Check in to start tracking your day
+              </p>
             </div>
           ) : (
             activities.map((activity, index) => (
@@ -332,11 +330,48 @@ const ActivityTable: React.FC<ActivityTableProps> = ({ activities }) => {
 // Main Dashboard Component
 const TimeTrackingDashboard: React.FC = () => {
   const currentTime = useCurrentTime();
+  const router = useRouter();
   const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const { logout, user } = useAuth();
+
+  // Load saved state from localStorage
+  useEffect(() => {
+    const savedCheckIn = localStorage.getItem("isCheckedIn");
+    const savedCheckInTime = localStorage.getItem("checkInTime");
+    const savedActivities = localStorage.getItem("activities");
+
+    if (savedCheckIn === "true") {
+      setIsCheckedIn(true);
+    }
+    if (savedCheckInTime) {
+      setCheckInTime(new Date(savedCheckInTime));
+    }
+    if (savedActivities) {
+      try {
+        const parsedActivities = JSON.parse(savedActivities).map(
+          (activity: any) => ({
+            ...activity,
+            timestamp: new Date(activity.timestamp),
+          })
+        );
+        setActivities(parsedActivities);
+      } catch (error) {
+        console.error("Error parsing activities:", error);
+      }
+    }
+  }, []);
+
+  // Save state to localStorage
+  useEffect(() => {
+    localStorage.setItem("isCheckedIn", isCheckedIn.toString());
+    if (checkInTime) {
+      localStorage.setItem("checkInTime", checkInTime.toISOString());
+    }
+    localStorage.setItem("activities", JSON.stringify(activities));
+  }, [isCheckedIn, checkInTime, activities]);
 
   // Timer logic
   const workTimer = useTimer(isCheckedIn && !isOnBreak);
@@ -363,11 +398,63 @@ const TimeTrackingDashboard: React.FC = () => {
     []
   );
 
+  // Calculate actual hours from activities
+  const calculateHoursFromActivities = useCallback(() => {
+    if (activities.length === 0) return { totalHours: 0, breakHours: 0 };
+
+    const checkInActivity = activities.find((a) => a.type === "checkin");
+    const checkOutActivity = activities.find((a) => a.type === "checkout");
+
+    if (!checkInActivity) return { totalHours: 0, breakHours: 0 };
+
+    const checkInTime = checkInActivity.timestamp;
+    const checkOutTime = checkOutActivity
+      ? checkOutActivity.timestamp
+      : new Date();
+
+    // Calculate total hours worked
+    const totalMs = checkOutTime.getTime() - checkInTime.getTime();
+    const totalHours = totalMs / (1000 * 60 * 60);
+
+    // Calculate break hours
+    let breakMs = 0;
+    let breakStartTime: Date | null = null;
+
+    for (const activity of activities) {
+      if (activity.type === "break_start") {
+        breakStartTime = activity.timestamp;
+      } else if (activity.type === "break_end" && breakStartTime) {
+        breakMs += activity.timestamp.getTime() - breakStartTime.getTime();
+        breakStartTime = null;
+      }
+    }
+
+    // If break is still ongoing, add current break time
+    if (breakStartTime) {
+      breakMs += new Date().getTime() - breakStartTime.getTime();
+    }
+
+    const breakHours = breakMs / (1000 * 60 * 60);
+
+    return { totalHours: Math.max(0, totalHours - breakHours), breakHours };
+  }, [activities]);
+
   const handleCheckIn = useCallback(() => {
-    setIsCheckedIn(true);
-    setCheckInTime(new Date());
-    addActivity("checkin", "Started work session");
-  }, [addActivity]);
+    if (isCheckedIn) {
+      // User is checking out
+      setIsCheckedIn(false);
+      setIsOnBreak(false);
+      setCheckInTime(null);
+      addActivity("checkout", "Ended work session");
+      workTimer.reset();
+      breakTimer.reset();
+    } else {
+      // User is checking in
+      setIsCheckedIn(true);
+      setCheckInTime(new Date());
+      addActivity("checkin", "Started work session");
+    }
+  }, [isCheckedIn, addActivity, workTimer, breakTimer]);
 
   const handleBreak = useCallback(() => {
     if (isOnBreak) {
@@ -379,11 +466,11 @@ const TimeTrackingDashboard: React.FC = () => {
     }
   }, [isOnBreak, addActivity]);
 
-  const handleCheckOut = useCallback(() => {
-    setIsCheckedIn(false);
-    setIsOnBreak(false);
-    addActivity("checkout", "Ended work session");
-  }, [addActivity]);
+  // Remove handleCheckOut since it's now handled in handleCheckIn
+
+  const handleAttendance = useCallback(() => {
+    router.push("/attendance");
+  }, [router]);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -394,78 +481,104 @@ const TimeTrackingDashboard: React.FC = () => {
     setCheckInTime(null);
     workTimer.reset();
     breakTimer.reset();
+    // Clear localStorage
+    localStorage.removeItem("isCheckedIn");
+    localStorage.removeItem("checkInTime");
+    localStorage.removeItem("activities");
   }, [logout, workTimer, breakTimer]);
 
   return (
-    <ProtectedRoute>
-      <div className="relative bg-[#111111] min-h-screen ">
-        <Image
-          alt="bg"
-          src="/bg-img.png"
-          className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
-          height={1080}
-          width={1080}
-        />
+    <div className="relative bg-[#111111] min-h-screen ">
+      <Image
+        alt="bg"
+        src="/bg-img.png"
+        className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
+        height={1080}
+        width={1080}
+      />
 
-        <div className="relative z-10">
-          <header className="px-8 justify-between flex flex-row mb-8">
-            <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
-              <Menu size={36} />
-            </div>
-            <div className="flex items-center gap-4">
-              <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
-            </div>
-          </header>
-          <main className="max-w-7xl mx-auto px-6">
-            <ActionButtons
-              extraContent
-              isOnBreak={isOnBreak}
-              isCheckedIn={isCheckedIn}
-              onCheckIn={handleCheckIn}
-              onBreak={handleBreak}
-              onCheckOut={handleCheckOut}
-            />
+      <div className="relative z-10">
+        <header className="px-8 justify-between flex flex-row mb-8">
+          <div className="w-24 h-28 pt-8 text-white font-bold cursor-pointer">
+            <Menu size={36} />
+          </div>
+          <div className="flex items-center gap-4">
+            <Image src={"/logo.png"} width={160} height={160} alt="adwello" />
+          </div>
 
-            {isCheckedIn && (
-              <>
-                {/* Stats Cards */}
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <StatsCard
-                    title="Worked Hours"
-                    value={formatTime(workTimer.seconds)}
-                    subtitle="Today"
-                    color="primary"
-                  />
-                  <StatsCard
-                    title="Expected Hours"
-                    value={formatTime(expectedSeconds)}
-                    subtitle="Target for today"
-                    color="primary"
-                  />
-                  <StatsCard
-                    title="Break Hours"
-                    value={formatTimeShort(breakTimer.seconds)}
-                    subtitle="Total Breaks"
-                    color="primary"
-                  />
-                  <StatsCard
-                    title="Remaining Hours"
-                    value={formatTime(remainingSeconds)}
-                    subtitle="To reach target"
-                    color="primary"
-                  />
-                </section>
+          {/* Status Indicator */}
+        </header>
+        <main className="max-w-7xl mx-auto px-6">
+          <ActionButtons
+            extraContent
+            isOnBreak={isOnBreak}
+            isCheckedIn={isCheckedIn}
+            onCheckIn={handleCheckIn}
+            onBreak={handleBreak}
+            onAttendance={handleAttendance}
+          />
 
-                {/* Activity Table */}
-                <section>
-                  <ActivityTable activities={activities} />
-                </section>
-              </>
-            )}
-          </main>
-        </div>
+          {/* Stats Cards - Show if there are activities today */}
+          {activities.length > 0 && (
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <StatsCard
+                title="Worked Hours"
+                value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
+                subtitle="Today"
+                color="primary"
+              />
+              <StatsCard
+                title="Expected Hours"
+                value={formatTime(expectedSeconds)}
+                subtitle="Target for today"
+                color="primary"
+              />
+              <StatsCard
+                title="Break Hours"
+                value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
+                subtitle="Total Breaks"
+                color="primary"
+              />
+              <StatsCard
+                title="Remaining Hours"
+                value={formatTime(
+                  Math.max(
+                    0,
+                    expectedSeconds -
+                      calculateHoursFromActivities().totalHours * 3600
+                  )
+                )}
+                subtitle="To reach target"
+                color="primary"
+              />
+            </section>
+          )}
+
+          {/* Activity Table - Always visible if there are activities */}
+          {activities.length > 0 && (
+            <section>
+              <ActivityTable activities={activities} />
+            </section>
+          )}
+
+          {/* Empty State - Show when no activities */}
+          {activities.length === 0 && (
+            <section className="text-center py-16">
+              <div className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50 rounded-lg p-8 max-w-md mx-auto">
+                <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  No Activities Today
+                </h3>
+                <p className="text-gray-400 mb-4">
+                  Start your day by checking in to track your work hours and
+                  activities.
+                </p>
+              </div>
+            </section>
+          )}
+        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 };
 

@@ -51,7 +51,7 @@ const LoginForm: React.FC = () => {
         {/* Logo */}
         <div className="w-72 h-72 rounded-full overflow-hidden bg-white flex items-center justify-center border-8 border-[#FF6300]">
           <img
-            src="/greek.png"
+            src="/sansuka-logo.jpg"
             className="w-64 h-64 object-contain"
             alt="Logo"
           />
@@ -61,7 +61,7 @@ const LoginForm: React.FC = () => {
         <div className="text-center mt-6">
           <p className="text-white font-bold text-4xl mb-2">LOGIN</p>
           <span className="text-[#9F9999] font-semibold text-2xl">
-            Welcome to Adwello Management
+            Welcome to Sansuka Private Limited
           </span>
         </div>
 
