@@ -52,7 +52,7 @@ export function formatTimeOnly(date: Date): string {
 }
 
 export function getImageUrl(imagePath: string | null | undefined): string | null {
-  if (!imagePath) return null
+  if (!imagePath || imagePath.trim() === '') return null
   
   // If it's already a full URL, return as is
   if (imagePath.startsWith('http')) {
@@ -62,4 +62,20 @@ export function getImageUrl(imagePath: string | null | undefined): string | null
   // Construct full URL with API base
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   return `${apiUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`
+}
+
+export function handleImageError(e: React.SyntheticEvent<HTMLImageElement, Event>) {
+  const target = e.target as HTMLImageElement;
+  
+  // Hide the broken image
+  target.style.display = 'none';
+  
+  // Show the fallback element (next sibling)
+  const fallback = target.nextElementSibling as HTMLElement;
+  if (fallback) {
+    fallback.style.display = 'flex';
+  }
+  
+  // Prevent further error events
+  target.onError = null;
 }

@@ -123,6 +123,18 @@ export const employeeAPI = {
     const response = await api.get('/api/employees/job-roles/')
     return response.data
   },
+  
+  uploadProfileImage: async (imageFile: File) => {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    
+    const response = await api.post('/api/employees/me/upload-image/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
 }
 
 export const attendanceAPI = {
@@ -154,6 +166,14 @@ export const attendanceAPI = {
   getAttendanceByDateRange: async (startDate: string, endDate: string) => {
     const response = await api.get('/api/attendance/date-range/', {
       params: { start_date: startDate, end_date: endDate }
+    })
+    return response.data
+  },
+  
+  getCurrentUserTodayAttendance: async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const response = await api.get('/api/attendance/date-range/', {
+      params: { start_date: today, end_date: today }
     })
     return response.data
   },

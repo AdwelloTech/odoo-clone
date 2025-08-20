@@ -5,11 +5,10 @@ import { motion } from 'framer-motion'
 import { 
   CalendarDaysIcon, 
   ClockIcon, 
-  UserGroupIcon,
-  ChartBarIcon 
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
+import { DailyActivityChart } from './DailyActivityChart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatDuration, formatDate, formatTimeOnly } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { attendanceAPI } from '@/lib/api'
 
@@ -31,7 +30,6 @@ interface AttendanceOverviewProps {
 export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentStatus }) => {
   const { employee } = useAuth()
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([])
-  const [myAttendance, setMyAttendance] = useState<AttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchAttendanceData = async () => {
@@ -41,12 +39,6 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentS
       // Fetch today's attendance for all employees
       const todayData = await attendanceAPI.getTodayAttendance()
       setTodayAttendance(todayData || [])
-      
-      // Fetch current user's recent attendance
-      if (employee) {
-        const myData = await attendanceAPI.getAttendanceByEmployee(employee.id)
-        setMyAttendance(myData?.slice(0, 5) || [])
-      }
     } catch (error) {
       console.error('Failed to fetch attendance data:', error)
     } finally {
@@ -57,27 +49,6 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentS
   useEffect(() => {
     fetchAttendanceData()
   }, [employee])
-
-  const getStatusIndicator = (status: string, checkIn: string | null, checkOut: string | null) => {
-    if (checkOut) {
-      return <div className="w-2 h-2 bg-gray-400 rounded-full" />
-    }
-    if (checkIn) {
-      return <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-    }
-    return <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-  }
-
-  const calculateWorkingHours = (checkIn: string | null, checkOut: string | null) => {
-    if (!checkIn) return '0h 0m'
-    
-    const start = new Date(checkIn)
-    const end = checkOut ? new Date(checkOut) : new Date()
-    const diffMs = end.getTime() - start.getTime()
-    const diffMinutes = Math.floor(diffMs / (1000 * 60))
-    
-    return formatDuration(diffMinutes)
-  }
 
   const stats = [
     {
@@ -173,53 +144,8 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentS
         </CardContent>
       </Card> */}
 
-      {/* My Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <ChartBarIcon className="w-5 h-5 mr-2" />
-            My Recent Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              ))}
-            </div>
-          ) : myAttendance.length > 0 ? (
-            <div className="space-y-3">
-              {myAttendance.map((record) => (
-                <div key={record.attendance_id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{formatDate(new Date(record.date))}</p>
-                    <p className="text-sm text-gray-600">{record.status}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
-                      {calculateWorkingHours(record.check_in_time, record.check_out_time)}
-                    </p>
-                    <div className="text-xs text-gray-600 space-x-2">
-                      {record.check_in_time && (
-                        <span>In: {formatTimeOnly(new Date(record.check_in_time))}</span>
-                      )}
-                      {record.check_out_time && (
-                        <span>Out: {formatTimeOnly(new Date(record.check_out_time))}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-600 text-center py-4">No recent attendance records</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Daily Activity Chart */}
+      <DailyActivityChart currentStatus={currentStatus} />
     </div>
   )
 }

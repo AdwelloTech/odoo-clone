@@ -2,7 +2,14 @@ from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
+import uuid
+from PIL import Image
+from io import BytesIO
 from .models import Employee, JobRole, Department
 from .serializers import (
     EmployeeCreateSerializer, 
@@ -217,5 +224,112 @@ def update_current_user_profile(request):
     except Exception as e:
         return Response({
             'message': 'Error updating employee profile',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_profile_image(request):
+    """Upload profile image for the current authenticated user"""
+    try:
+        # Get the employee profile for the current authenticated user
+        employee = Employee.objects.get(user=request.user)
+        
+        if not employee.is_active:
+            return Response({
+                'message': 'Employee profile is inactive',
+                'error': 'Your employee profile has been deactivated'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if image file is provided
+        if 'image' not in request.FILES:
+            return Response({
+                'message': 'No image provided',
+                'error': 'Please select an image file to upload'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        image_file = request.FILES['image']
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+        if image_file.content_type not in allowed_types:
+            return Response({
+                'message': 'Invalid file type',
+                'error': 'Please upload a JPEG, PNG, or WebP image'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file size (max 5MB)
+        max_size = 5 * 1024 * 1024  # 5MB
+        if image_file.size > max_size:
+            return Response({
+                'message': 'File too large',
+                'error': 'Please upload an image smaller than 5MB'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Delete old profile image if it exists
+        if employee.profile_image and default_storage.exists(employee.profile_image.name):
+            default_storage.delete(employee.profile_image.name)
+        
+        # Process and resize image
+        try:
+            # Open image with PIL
+            img = Image.open(image_file)
+            
+            # Convert to RGB if necessary (for PNG with transparency)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                img = img.convert('RGB')
+            
+            # Resize image to 400x400 while maintaining aspect ratio
+            img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            
+            # Create a square image with white background
+            square_img = Image.new('RGB', (400, 400), (255, 255, 255))
+            
+            # Calculate position to center the image
+            x_offset = (400 - img.width) // 2
+            y_offset = (400 - img.height) // 2
+            
+            # Paste the resized image onto the square background
+            square_img.paste(img, (x_offset, y_offset))
+            
+            # Save processed image to BytesIO
+            output = BytesIO()
+            square_img.save(output, format='JPEG', quality=90, optimize=True)
+            output.seek(0)
+            
+            # Generate unique filename
+            file_extension = 'jpg'
+            filename = f"profile_{employee.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+            file_path = f"profile_images/{filename}"
+            
+            # Save to storage
+            saved_path = default_storage.save(file_path, ContentFile(output.read()))
+            
+            # Update employee profile
+            employee.profile_image = saved_path
+            employee.save()
+            
+            # Return updated profile data
+            serializer = EmployeeProfileSerializer(employee)
+            return Response({
+                'message': 'Profile image uploaded successfully',
+                'employee': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as img_error:
+            return Response({
+                'message': 'Error processing image',
+                'error': f'Failed to process the uploaded image: {str(img_error)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Employee.DoesNotExist:
+        return Response({
+            'message': 'Employee profile not found',
+            'error': 'No employee profile exists for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'message': 'Error uploading profile image',
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

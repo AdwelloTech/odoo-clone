@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   UserCircleIcon, 
   PencilIcon, 
@@ -13,14 +13,16 @@ import {
   ClockIcon,
   UserIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ImageWithFallback } from '@/components/ui/image-with-fallback'
+import { ImageUpload } from '@/components/ui/image-upload'
 import { useAuth } from '@/contexts/AuthContext'
-import { employeeAPI } from '@/lib/api'
+import { employeeAPI, attendanceAPI } from '@/lib/api'
 import { formatDate, getImageUrl } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 
@@ -42,6 +44,10 @@ export const ProfileView: React.FC = () => {
   const { addToast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [showImageUpload, setShowImageUpload] = useState(false)
+  const [todayAttendance, setTodayAttendance] = useState<any[]>([])
+  const [attendanceLoading, setAttendanceLoading] = useState(true)
   const [departments, setDepartments] = useState<Department[]>([])
   const [jobRoles, setJobRoles] = useState<JobRole[]>([])
   
@@ -128,12 +134,65 @@ export const ProfileView: React.FC = () => {
     }
   }
 
+  // Load today's attendance data
+  useEffect(() => {
+    const loadTodayAttendance = async () => {
+      if (!employee?.employee_id) return
+      
+      try {
+        setAttendanceLoading(true)
+        const response = await attendanceAPI.getCurrentUserTodayAttendance()
+        // Filter attendance records for current user
+        const userAttendance = response.filter((record: any) => 
+          record.employee_id === employee.employee_id || 
+          record.employee === employee.employee_id
+        )
+        setTodayAttendance(userAttendance)
+      } catch (error) {
+        console.error('Error loading today\'s attendance:', error)
+        setTodayAttendance([])
+      } finally {
+        setAttendanceLoading(false)
+      }
+    }
+    
+    loadTodayAttendance()
+  }, [employee?.employee_id])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: name === 'expected_hours' || name === 'role' ? Number(value) : value
     }))
+  }
+
+  const handleImageUpload = async (file: File) => {
+    setIsUploadingImage(true)
+    try {
+      const response = await employeeAPI.uploadProfileImage(file)
+      await refreshUserData()
+      setShowImageUpload(false)
+      addToast({
+        type: 'success',
+        title: 'Profile Image Updated',
+        message: 'Your profile image has been successfully updated.',
+      })
+    } catch (error: any) {
+      console.error('Failed to upload image:', error)
+      addToast({
+        type: 'error',
+        title: 'Upload Failed',
+        message: error.response?.data?.error || 'Failed to upload image. Please try again.',
+      })
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleImageSelect = (file: File) => {
+    // Optional: Show preview or validate file before upload
+    console.log('Image selected:', file.name)
   }
 
   if (!user || !employee) {
@@ -208,22 +267,47 @@ export const ProfileView: React.FC = () => {
                     className="border-4 border-white shadow-lg mx-auto"
                   />
                   
-                  {isEditing && (
-                    <button 
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-                      onClick={() => {
-                        // TODO: Implement image upload functionality
-                        addToast({
-                          type: 'info',
-                          title: 'Image Upload',
-                          message: 'Image upload functionality will be available soon.',
-                        });
-                      }}
-                    >
-                      <CameraIcon className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button 
+                    className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                    onClick={() => setShowImageUpload(true)}
+                  >
+                    <CameraIcon className="w-4 h-4" />
+                  </button>
                 </div>
+
+                {/* Image Upload Modal */}
+                <AnimatePresence>
+                  {showImageUpload && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white rounded-xl p-6 max-w-md w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Upload Profile Image
+                          </h3>
+                          <button
+                            onClick={() => setShowImageUpload(false)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <XMarkIcon className="w-6 h-6" />
+                          </button>
+                        </div>
+                        
+                        <ImageUpload
+                          onImageSelect={handleImageSelect}
+                          onUpload={handleImageUpload}
+                          isUploading={isUploadingImage}
+                          maxSizeInMB={5}
+                        />
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
 
                 {/* Name and Role */}
                 <div className="mt-4">
@@ -255,27 +339,59 @@ export const ProfileView: React.FC = () => {
           {/* Quick Stats */}
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle className="text-lg">Quick Stats</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <ChartBarIcon className="w-5 h-5 mr-2 text-blue-600" />
+                Quick Stats
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <CalendarDaysIcon className="w-5 h-5 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Joined</span>
+            <CardContent className="space-y-6">
+              {/* Date Joined */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <CalendarDaysIcon className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Date Joined</span>
                 </div>
-                <span className="text-sm font-medium">
-                  {formatDate(new Date(employee.date_joined))}
-                </span>
+                <p className="text-lg font-semibold text-gray-900 ml-11">
+                  {new Intl.DateTimeFormat('en-US', { 
+                    weekday: 'long',
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }).format(new Date(employee.date_joined))}
+                </p>
               </div>
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <ClockIcon className="w-5 h-5 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Expected Hours</span>
+              {/* Expected Hours */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <ClockIcon className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Expected Hours</span>
                 </div>
-                <span className="text-sm font-medium">
-                  {employee.expected_hours}h/day
-                </span>
+                <p className="text-lg font-semibold text-gray-900 ml-11">
+                  {employee.expected_hours} hours per day
+                </p>
+              </div>
+
+              {/* Department Info */}
+              <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                    <BuildingOfficeIcon className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Department</span>
+                </div>
+                <p className="text-lg font-semibold text-gray-900 ml-11">
+                  {employee.role?.department?.name}
+                </p>
+                {employee.role?.department?.description && (
+                  <p className="text-sm text-gray-600 ml-11 mt-1">
+                    {employee.role?.department?.description}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -461,6 +577,161 @@ export const ProfileView: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Daily Attendance Chart */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="mt-6"
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center">
+              <ClockIcon className="w-6 h-6 mr-2 text-green-600" />
+              Today's Attendance
+              <span className="ml-auto text-sm font-normal text-gray-500">
+                {new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attendanceLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">Loading attendance data...</span>
+              </div>
+            ) : todayAttendance.length > 0 ? (
+              <div className="space-y-6">
+                {todayAttendance.map((attendance: any, index: number) => (
+                  <div key={attendance.attendance_id} className="relative">
+                    {/* Timeline Line */}
+                    {index < todayAttendance.length - 1 && (
+                      <div className="absolute left-6 top-16 w-0.5 h-20 bg-gray-200"></div>
+                    )}
+                    
+                    {/* Attendance Entry */}
+                    <div className="flex items-start space-x-4">
+                      {/* Status Icon */}
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        attendance.status === 'PRESENT' ? 'bg-green-100' :
+                        attendance.status === 'LATE' ? 'bg-yellow-100' :
+                        attendance.status === 'ABSENT' ? 'bg-red-100' :
+                        'bg-blue-100'
+                      }`}>
+                        {attendance.status === 'PRESENT' ? (
+                          <CheckIcon className={`w-6 h-6 text-green-600`} />
+                        ) : attendance.status === 'LATE' ? (
+                          <ClockIcon className={`w-6 h-6 text-yellow-600`} />
+                        ) : attendance.status === 'ABSENT' ? (
+                          <XMarkIcon className={`w-6 h-6 text-red-600`} />
+                        ) : (
+                          <ClockIcon className={`w-6 h-6 text-blue-600`} />
+                        )}
+                      </div>
+
+                      {/* Attendance Details */}
+                      <div className="flex-1 bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-gray-900">
+                            Status: {attendance.status}
+                          </h4>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            attendance.status === 'PRESENT' ? 'bg-green-100 text-green-800' :
+                            attendance.status === 'LATE' ? 'bg-yellow-100 text-yellow-800' :
+                            attendance.status === 'ABSENT' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {attendance.status}
+                          </span>
+                        </div>
+                        
+                        {/* Check-in/Check-out Times */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {attendance.check_in_time && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">Check In</p>
+                                <p className="text-lg font-semibold text-green-600">
+                                  {new Date(attendance.check_in_time).toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {attendance.check_out_time && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">Check Out</p>
+                                <p className="text-lg font-semibold text-red-600">
+                                  {new Date(attendance.check_out_time).toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Work Duration */}
+                        {attendance.check_in_time && attendance.check_out_time && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-blue-700">Total Work Time</span>
+                              <span className="text-lg font-bold text-blue-800">
+                                {(() => {
+                                  const checkIn = new Date(attendance.check_in_time)
+                                  const checkOut = new Date(attendance.check_out_time)
+                                  const diffMs = checkOut.getTime() - checkIn.getTime()
+                                  const hours = Math.floor(diffMs / (1000 * 60 * 60))
+                                  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+                                  return `${hours}h ${minutes}m`
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <ClockIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No attendance recorded today</h3>
+                <p className="text-gray-500 mb-6">You haven't clocked in yet today. Start tracking your time!</p>
+                <div className="flex justify-center space-x-4">
+                  <Button className="bg-green-600 hover:bg-green-700">
+                    <ClockIcon className="w-4 h-4 mr-2" />
+                    Clock In
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { UserCircleIcon } from '@heroicons/react/24/outline'
-import { getImageUrl } from '@/lib/utils'
+import { getImageUrl, handleImageError } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
 interface ImageWithFallbackProps {
@@ -38,8 +38,9 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
   const imageUrl = getImageUrl(src)
   const showImage = imageUrl && !imageError
 
-  const handleImageError = () => {
+  const handleImageLoadError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     setImageError(true)
+    handleImageError(e)
   }
 
   if (!showImage) {
@@ -67,7 +68,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
         sizeClasses[size],
         className
       )}
-      onError={handleImageError}
+      onError={handleImageLoadError}
     />
   )
 }
