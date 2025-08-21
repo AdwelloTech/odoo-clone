@@ -44,7 +44,10 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <ClientLayout>{children}</ClientLayout>
+          <ClientLayout>
+            <AppNavbar />
+            {children}
+          </ClientLayout>
         </AuthProvider>
       </body>
     </html>

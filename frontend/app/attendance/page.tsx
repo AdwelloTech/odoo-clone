@@ -25,6 +25,7 @@ import {
   AttendanceRecord as BackendAttendanceRecord,
 } from "@/app/api/attendance";
 import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
+import AppNavbar from "@/components/navbar";
 
 // Types
 interface AttendanceRecord {
@@ -996,26 +997,18 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
         />
 
         <div className="relative z-10">
+          <AppNavbar />
           {/* Header */}
           <header className="px-8 py-6">
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Button
-                    variant="bordered"
-                    color="default"
-                    onClick={() => router.push("/dashboard")}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                  >
-                    Back to Dashboard
-                  </Button>
-                  <Calendar size={32} className="text-[#FF6300]" />
                   <h1 className="text-3xl font-bold text-white">Attendance</h1>
                 </div>
                 <Button
                   color="primary"
                   variant="flat"
-                  onClick={goToToday}
+                  onPress={goToToday}
                   className="bg-[#FF6300] text-white hover:bg-orange-600"
                 >
                   Today
