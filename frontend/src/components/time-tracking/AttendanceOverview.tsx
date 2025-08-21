@@ -1,75 +1,90 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { 
-  CalendarDaysIcon, 
-  ClockIcon, 
-  UserGroupIcon
-} from '@heroicons/react/24/outline'
-import { DailyActivityChart } from './DailyActivityChart'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/AuthContext'
-import { attendanceAPI } from '@/lib/api'
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  CalendarDaysIcon,
+  ClockIcon,
+  UserGroupIcon,
+} from "@heroicons/react/24/outline";
+import { DailyActivityChart } from "./DailyActivityChart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { attendanceAPI } from "@/lib/api";
 
 interface AttendanceRecord {
-  attendance_id: number
-  employee_name: string
-  employee_email: string
-  department: string
-  date: string
-  status: string
-  check_in_time: string | null
-  check_out_time: string | null
+  attendance_id: number;
+  employee_name: string;
+  employee_email: string;
+  department: string;
+  date: string;
+  status: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
 }
 
 interface AttendanceOverviewProps {
-  currentStatus: 'idle' | 'working' | 'break'
+  currentStatus: "idle" | "working" | "break";
 }
 
-export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentStatus }) => {
-  const { employee } = useAuth()
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
+  currentStatus,
+}) => {
+  const { employee } = useAuth();
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>(
+    []
+  );
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchAttendanceData = async () => {
     try {
-      setIsLoading(true)
-      
+      setIsLoading(true);
+
       // Fetch today's attendance for all employees
-      const todayData = await attendanceAPI.getTodayAttendance()
-      setTodayAttendance(todayData || [])
+      const todayData = await attendanceAPI.getTodayAttendance();
+      setTodayAttendance(todayData || []);
     } catch (error) {
-      console.error('Failed to fetch attendance data:', error)
+      console.error("Failed to fetch attendance data:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchAttendanceData()
-  }, [employee])
+    fetchAttendanceData();
+  }, [employee]);
 
   const stats = [
     {
       title: "Today's Status",
-      value: currentStatus === 'working' ? 'Working' : currentStatus === 'break' ? 'On Break' : 'Not Working',
+      value:
+        currentStatus === "working"
+          ? "Working"
+          : currentStatus === "break"
+          ? "On Break"
+          : "Not Working",
       icon: ClockIcon,
-      color: currentStatus === 'working' ? 'text-green-600' : currentStatus === 'break' ? 'text-orange-600' : 'text-gray-600',
+      color:
+        currentStatus === "working"
+          ? "text-green-600"
+          : currentStatus === "break"
+          ? "text-orange-600"
+          : "text-gray-600",
     },
     {
-      title: 'Team Online',
-      value: todayAttendance.filter(a => a.check_in_time && !a.check_out_time).length,
+      title: "Team Online",
+      value: todayAttendance.filter((a) => a.check_in_time && !a.check_out_time)
+        .length,
       icon: UserGroupIcon,
-      color: 'text-blue-600',
+      color: "text-blue-600",
     },
     {
-      title: 'Total Today',
-      value: todayAttendance.length,
+      title: "Total Clock Ins Today",
+      value: Array.isArray(todayAttendance) ? todayAttendance.length : 0,
       icon: CalendarDaysIcon,
-      color: 'text-purple-600',
+      color: "text-purple-600",
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
@@ -86,7 +101,9 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentS
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      {stat.title}
+                    </p>
                     <p className={`text-2xl font-bold ${stat.color}`}>
                       {stat.value}
                     </p>
@@ -147,5 +164,5 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentS
       {/* Daily Activity Chart */}
       <DailyActivityChart currentStatus={currentStatus} />
     </div>
-  )
-}
+  );
+};
