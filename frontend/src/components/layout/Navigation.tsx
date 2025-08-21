@@ -50,7 +50,7 @@ export const Navigation: React.FC = () => {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-[#121212] border-r border-gray-200 w-64 h-screen fixed left-0 top-0 z-10"
+      className="bg-[#121212] shadow-xs shadow-white w-64 h-screen fixed left-0 top-0 z-10"
     >
       <div className="p-6">
         {/* Logo */}
