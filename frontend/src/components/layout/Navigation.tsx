@@ -1,55 +1,27 @@
 "use client";
 
-
-import React from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
-import Image from 'next/image'
-import { 
-  HomeIcon, 
-  ClockIcon, 
+import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  HomeIcon,
+  ClockIcon,
   ClipboardDocumentListIcon,
-
   UserIcon,
   ChartBarIcon,
   CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const navItems = [
-  {
-    name: "Dashboard",
-    href: "/",
-    icon: HomeIcon,
-  },
-  {
-    name: "Time Tracking",
-    href: "/time-tracking",
-    icon: ClockIcon,
-  },
-  {
-
-    name: 'Tasks',
-    href: '/tasks',
-    icon: ClipboardDocumentListIcon,
-  },
-  {
-    name: 'Profile',
-    href: '/profile',
-
-    icon: UserIcon,
-  },
-  {
-    name: "Reports",
-    href: "/reports",
-    icon: ChartBarIcon,
-  },
-  {
-    name: "Calendar",
-    href: "/calendar",
-    icon: CalendarDaysIcon,
-  },
+  { name: "Dashboard", href: "/", icon: HomeIcon },
+  { name: "Time Tracking", href: "/time-tracking", icon: ClockIcon },
+  { name: "Tasks", href: "/tasks", icon: ClipboardDocumentListIcon },
+  { name: "Profile", href: "/profile", icon: UserIcon },
+  { name: "Reports", href: "/reports", icon: ChartBarIcon },
+  { name: "Calendar", href: "/calendar", icon: CalendarDaysIcon },
 ];
 
 export const Navigation: React.FC = () => {
@@ -65,12 +37,7 @@ export const Navigation: React.FC = () => {
       <div className="p-6">
         {/* Logo */}
         <div className="px-4 flex items-center space-x-3 mb-8">
-          <Image
-            src="/adwello-logo.png"
-            alt="Adwello CRM"
-            width={160}
-            height={160}
-          />
+          <Image src="/adwello-logo.png" alt="Adwello CRM" width={160} height={160} />
         </div>
 
         {/* Navigation Items */}
@@ -84,8 +51,8 @@ export const Navigation: React.FC = () => {
                 className={cn(
                   "flex items-center space-x-3 px-4 py-2 rounded-full transition-all duration-200",
                   isActive
-                    ? "bg-[#FF6300] text-center text-white"
-                    : "text-white text-center hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-[#FF6300] text-white"
+                    : "text-white hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -93,7 +60,7 @@ export const Navigation: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="activeTab"
-                    className="ml-auto w-2 h-2 rounded-full"
+                    className="ml-auto w-2 h-2 rounded-full bg-white"
                   />
                 )}
               </Link>
