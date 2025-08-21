@@ -22,5 +22,6 @@ urlpatterns = [
     path('employee/<int:employee_id>/', views.attendance_by_employee, name='attendance-by-employee'),
     path('date-range/', views.attendance_by_date_range, name='attendance-by-date-range'),
     path('today/', views.today_attendance, name='today-attendance'),
+    path('my-today-detailed/', views.my_today_attendance_detailed, name='my-today-detailed'),
     path('current-status/', views.current_attendance_status, name='current-attendance-status'),
 ]
