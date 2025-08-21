@@ -23,4 +23,6 @@ urlpatterns = [
     
     # Current user's employee profile
     path('me/', views.current_user_employee_profile, name='current-user-employee-profile'),
+    path('me/update/', views.update_current_user_profile, name='update-current-user-profile'),
+    path('me/upload-image/', views.upload_profile_image, name='upload-profile-image'),
 ]

@@ -1,35 +1,27 @@
-"use client";
+'use client'
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import LoginForm from "./components/LoginForm";
-import { useAuth } from "./contexts/AuthContext";
+import React from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { LoginForm } from '@/components/LoginForm'
+import { Dashboard } from '@/components/pages/Dashboard'
 
-export default function App() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.push("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
+export default function HomePage() {
+  const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
-    );
+    )
   }
 
-  if (isAuthenticated) {
-    return null; // Will redirect to dashboard
+  if (!isAuthenticated) {
+    return <LoginForm />
   }
 
-  return (
-    <div>
-      <LoginForm />
-    </div>
-  );
+  return <Dashboard />
 }

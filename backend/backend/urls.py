@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/auth/', include('authentication.urls')),
     path('api/attendance/', include('attendance.urls')),
     path('api/employees/', include('employees.urls')),
+    path('api/tasks/', include('tasks.urls')),
 ]
 
 # Serve media files during development

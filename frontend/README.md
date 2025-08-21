@@ -1,53 +1,134 @@
-# Next.js & HeroUI Template
+# Adwello CRM - Time Management Frontend
 
-This is a template for creating applications using Next.js 14 (app directory) and HeroUI (v2).
+A modern, responsive time tracking and attendance management system built with Next.js, TypeScript, and Tailwind CSS.
 
-[Try it on CodeSandbox](https://githubbox.com/heroui-inc/heroui/next-app-template)
+## Features
 
-## Technologies Used
+- **Beautiful UI/UX**: Modern, clean interface with smooth animations
+- **Time Tracking**: Visual timer with circular progress indicator
+- **Real-time Updates**: Live attendance status and team activity
+- **Responsive Design**: Mobile-first design that works on all devices
+- **Authentication**: Secure JWT-based authentication with auto-refresh
+- **Dashboard**: Comprehensive overview of attendance data and statistics
 
-- [Next.js 14](https://nextjs.org/docs/getting-started)
-- [HeroUI v2](https://heroui.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Tailwind Variants](https://tailwind-variants.org)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Framer Motion](https://www.framer.com/motion/)
-- [next-themes](https://github.com/pacocoursey/next-themes)
+## Tech Stack
 
-## How to Use
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS with custom design system
+- **Animations**: Framer Motion
+- **Icons**: Heroicons
+- **HTTP Client**: Axios with interceptors
+- **State Management**: React Context API
 
-### Use the template with create-next-app
+## Getting Started
 
-To create a new project based on this template using `create-next-app`, run the following command:
+### Prerequisites
 
+- Node.js 18+ 
+- npm or yarn
+- Django backend running on http://localhost:8000
+
+### Installation
+
+1. Clone the repository
 ```bash
-npx create-next-app -e https://github.com/heroui-inc/next-app-template
+git clone <repository-url>
+cd frontend
 ```
 
-### Install dependencies
-
-You can use one of them `npm`, `yarn`, `pnpm`, `bun`, Example using `npm`:
-
+2. Install dependencies
 ```bash
 npm install
 ```
 
-### Run the development server
+3. Set up environment variables
+```bash
+cp .env.example .env.local
+```
 
+4. Start the development server
 ```bash
 npm run dev
 ```
 
-### Setup pnpm (optional)
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-If you are using `pnpm`, you need to add the following code to your `.npmrc` file:
+## Project Structure
 
-```bash
-public-hoist-pattern[]=*@heroui/*
+```
+src/
+├── app/                 # Next.js app router
+├── components/          # React components
+│   ├── ui/             # Reusable UI components
+│   ├── TimeTracker.tsx # Main time tracking component
+│   ├── AttendanceOverview.tsx
+│   ├── LoginForm.tsx
+│   ├── Header.tsx
+│   └── Dashboard.tsx
+├── contexts/           # React contexts
+├── lib/                # Utilities and API
+└── types/              # TypeScript type definitions
 ```
 
-After modifying the `.npmrc` file, you need to run `pnpm install` again to ensure that the dependencies are installed correctly.
+## Key Components
+
+### TimeTracker
+- Visual circular timer with progress indication
+- Clock in/out functionality
+- Break tracking
+- Daily goal progress
+
+### AttendanceOverview
+- Team activity dashboard
+- Real-time status updates
+- Recent attendance history
+- Statistics and insights
+
+### LoginForm
+- Secure authentication
+- Form validation
+- Error handling
+- Beautiful animations
+
+## API Integration
+
+The frontend integrates with the Django backend through:
+
+- **Authentication**: JWT tokens with auto-refresh
+- **Attendance**: CRUD operations for attendance records
+- **Employees**: Employee profile management
+- **Real-time**: Live updates for team activity
+
+## Design System
+
+- **Colors**: Blue primary palette with semantic colors
+- **Typography**: Inter font with clear hierarchy
+- **Spacing**: Consistent 4px grid system
+- **Components**: Reusable UI components with variants
+- **Animations**: Smooth, purposeful animations
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript checks
+
+## Environment Variables
+
+- `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:8000)
+
+## Contributing
+
+1. Follow the existing code style
+2. Use TypeScript for all new files
+3. Implement proper error handling
+4. Add animations for better UX
+5. Ensure mobile responsiveness
+6. Write meaningful commit messages
 
 ## License
 
-Licensed under the [MIT license](https://github.com/heroui-inc/next-app-template/blob/main/LICENSE).
+Copyright © 2024 Adwello CRM. All rights reserved.
