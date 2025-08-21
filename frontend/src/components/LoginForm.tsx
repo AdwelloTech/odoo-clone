@@ -1,52 +1,52 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/AuthContext'
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LoginFormProps {
-  onSuccess?: () => void
+  onSuccess?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
-  const { login } = useAuth()
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+    email: "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
     try {
-      const result = await login(formData.email, formData.password)
-      
+      const result = await login(formData.email, formData.password);
+
       if (result.success) {
-        onSuccess?.()
+        onSuccess?.();
       } else {
-        setError(result.error || 'Login failed')
+        setError(result.error || "Login failed");
       }
     } catch (error) {
-      setError('An unexpected error occurred')
+      setError("An unexpected error occurred");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    if (error) setError('')
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError("");
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -71,7 +71,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             </CardTitle>
             <p className="text-gray-600 mt-2">Sign in to manage your time</p>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
@@ -85,7 +85,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-gray-700"
+                >
                   Email Address
                 </label>
                 <Input
@@ -101,14 +104,17 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-gray-700"
+                >
                   Password
                 </label>
                 <div className="relative">
                   <Input
                     id="password"
                     name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     required
                     value={formData.password}
                     onChange={handleInputChange}
@@ -121,7 +127,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
                     {showPassword ? (
-                      <EyeSlashIcon className="w-5 h-5" />
+                      <EyeOffIcon className="w-5 h-5" />
                     ) : (
                       <EyeIcon className="w-5 h-5" />
                     )}
@@ -141,7 +147,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                     Signing In...
                   </div>
                 ) : (
-                  'Sign In'
+                  "Sign In"
                 )}
               </Button>
             </form>
@@ -164,5 +170,5 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         </motion.p>
       </motion.div>
     </div>
-  )
-}
+  );
+};
