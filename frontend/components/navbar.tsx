@@ -21,13 +21,9 @@ const AppNavbar = () => {
   };
 
   const navigationItems = [
-    { name: "Dashboard", href: "/dashboard", icon: "📊" },
+    { name: "Dashboard", href: "/dashboard", icon: " " },
     { name: "Attendance", href: "/attendance", icon: "⏰" },
     { name: "Profile", href: "/profile", icon: "👤" },
-    { name: "About", href: "/about", icon: "ℹ️" },
-    { name: "Blog", href: "/blog", icon: "📝" },
-    { name: "Docs", href: "/docs", icon: "📚" },
-    { name: "Pricing", href: "/pricing", icon: "💰" },
   ];
 
   const handleNavigation = (href: string) => {

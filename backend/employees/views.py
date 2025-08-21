@@ -178,3 +178,44 @@ def current_user_employee_profile(request):
             'message': 'Error retrieving employee profile',
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_current_user_profile(request):
+    """Update the current authenticated user's employee profile"""
+    try:
+        # Get the employee profile for the current authenticated user
+        employee = Employee.objects.get(user=request.user)
+        
+        if not employee.is_active:
+            return Response({
+                'message': 'Employee profile is inactive',
+                'error': 'Your employee profile has been deactivated'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Use the update serializer
+        serializer = EmployeeUpdateSerializer(employee, data=request.data, partial=True)
+        if serializer.is_valid():
+            employee = serializer.save()
+            profile_serializer = EmployeeProfileSerializer(employee)
+            return Response({
+                'message': 'Profile updated successfully',
+                'employee': profile_serializer.data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'message': 'Profile update failed',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Employee.DoesNotExist:
+        return Response({
+            'message': 'Employee profile not found',
+            'error': 'No employee profile exists for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'message': 'Error updating employee profile',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

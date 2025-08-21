@@ -68,6 +68,28 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             'profile_image', 'role', 'is_active', 'expected_hours'
         ]
 
+    def validate(self, attrs):
+        # Validate first_name
+        if 'first_name' in attrs:
+            if not attrs['first_name'] or len(attrs['first_name'].strip()) == 0:
+                raise serializers.ValidationError("First name cannot be empty")
+            if len(attrs['first_name']) > 50:
+                raise serializers.ValidationError("First name cannot exceed 50 characters")
+        
+        # Validate last_name
+        if 'last_name' in attrs:
+            if not attrs['last_name'] or len(attrs['last_name'].strip()) == 0:
+                raise serializers.ValidationError("Last name cannot be empty")
+            if len(attrs['last_name']) > 50:
+                raise serializers.ValidationError("Last name cannot exceed 50 characters")
+        
+        # Validate expected_hours
+        if 'expected_hours' in attrs:
+            if attrs['expected_hours'] < 1 or attrs['expected_hours'] > 24:
+                raise serializers.ValidationError("Expected hours must be between 1 and 24")
+        
+        return attrs
+
 
 class EmployeeProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()

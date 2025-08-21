@@ -25,6 +25,7 @@ import {
   AttendanceRecord as BackendAttendanceRecord,
 } from "@/app/api/attendance";
 import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
+import AppNavbar from "@/components/navbar";
 
 // Types
 interface AttendanceRecord {
@@ -122,170 +123,6 @@ const getMonthDates = (date: Date): Date[] => {
   return dates;
 };
 
-// Generate realistic attendance data based on patterns
-const generateRealisticAttendanceData = (): AttendanceRecord[] => {
-  const records: AttendanceRecord[] = [];
-  const today = new Date();
-
-  // Generate data for the last 90 days (3 months)
-  for (let i = 0; i < 90; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-
-    // Skip weekends (Saturday = 6, Sunday = 0)
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-
-    // Skip holidays (you can add more holiday logic here)
-    const month = date.getMonth();
-    const day = date.getDate();
-
-    // Simple holiday check (New Year, Christmas, etc.)
-    if (
-      (month === 0 && day === 1) || // New Year
-      (month === 11 && day === 25)
-    ) {
-      // Christmas
-      continue;
-    }
-
-    // Generate realistic work patterns
-    let checkInHour = 8; // Base check-in time
-    let checkOutHour = 17; // Base check-out time
-    let breakHours = 1.0; // Base break time
-
-    // Add some variation based on day of week
-    if (date.getDay() === 1) {
-      // Monday - slightly later start
-      checkInHour += 0.5;
-    } else if (date.getDay() === 5) {
-      // Friday - slightly earlier end
-      checkOutHour -= 0.5;
-    }
-
-    // Add random variation (±30 minutes for check-in, ±1 hour for check-out)
-    checkInHour += Math.random() - 0.5;
-    checkOutHour += Math.random() - 0.5;
-
-    // Ensure reasonable bounds
-    checkInHour = Math.max(7, Math.min(10, checkInHour));
-    checkOutHour = Math.max(16, Math.min(20, checkOutHour));
-
-    // Calculate total hours
-    const totalHours = checkOutHour - checkInHour - breakHours;
-
-    // Determine status
-    const isOvertime = totalHours > 8.5;
-    const isShortHours = totalHours < 7.5;
-
-    // Generate realistic activities
-    const activities = [];
-
-    // Check-in
-    activities.push({
-      type: "checkin" as const,
-      time: `${Math.floor(checkInHour).toString().padStart(2, "0")}:${Math.round(
-        (checkInHour % 1) * 60
-      )
-        .toString()
-        .padStart(2, "0")}`,
-      description: "Started work session",
-    });
-
-    // Morning break (if working long hours)
-    if (totalHours > 6) {
-      const morningBreakTime = checkInHour + 2 + Math.random() * 0.5;
-      activities.push({
-        type: "break_start" as const,
-        time: `${Math.floor(morningBreakTime).toString().padStart(2, "0")}:${Math.round(
-          (morningBreakTime % 1) * 60
-        )
-          .toString()
-          .padStart(2, "0")}`,
-        description: "Morning break",
-      });
-      activities.push({
-        type: "break_end" as const,
-        time: `${Math.floor(morningBreakTime + 0.25)
-          .toString()
-          .padStart(2, "0")}:${Math.round(((morningBreakTime + 0.25) % 1) * 60)
-          .toString()
-          .padStart(2, "0")}`,
-        description: "Resumed work",
-      });
-    }
-
-    // Lunch break
-    const lunchStart = checkInHour + 4 + Math.random() * 0.5;
-    activities.push({
-      type: "break_start" as const,
-      time: `${Math.floor(lunchStart).toString().padStart(2, "0")}:${Math.round(
-        (lunchStart % 1) * 60
-      )
-        .toString()
-        .padStart(2, "0")}`,
-      description: "Lunch break",
-    });
-    activities.push({
-      type: "break_end" as const,
-      time: `${Math.floor(lunchStart + 0.75)
-        .toString()
-        .padStart(2, "0")}:${Math.round(((lunchStart + 0.75) % 1) * 60)
-        .toString()
-        .padStart(2, "0")}`,
-      description: "Resumed work",
-    });
-
-    // Afternoon break (if working very long hours)
-    if (totalHours > 8) {
-      const afternoonBreakTime = lunchStart + 2 + Math.random() * 0.5;
-      activities.push({
-        type: "break_start" as const,
-        time: `${Math.floor(afternoonBreakTime).toString().padStart(2, "0")}:${Math.round(
-          (afternoonBreakTime % 1) * 60
-        )
-          .toString()
-          .padStart(2, "0")}`,
-        description: "Afternoon break",
-      });
-      activities.push({
-        type: "break_end" as const,
-        time: `${Math.floor(afternoonBreakTime + 0.25)
-          .toString()
-          .padStart(2, "0")}:${Math.round(
-          ((afternoonBreakTime + 0.25) % 1) * 60
-        )
-          .toString()
-          .padStart(2, "0")}`,
-        description: "Resumed work",
-      });
-    }
-
-    // Check-out
-    activities.push({
-      type: "checkout" as const,
-      time: `${Math.floor(checkOutHour).toString().padStart(2, "0")}:${Math.round(
-        (checkOutHour % 1) * 60
-      )
-        .toString()
-        .padStart(2, "0")}`,
-      description: "Ended work session",
-    });
-
-    records.push({
-      date: getDateString(date),
-      checkIn: activities[0].time,
-      checkOut: activities[activities.length - 1].time,
-      totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
-      breakHours: Math.round(breakHours * 10) / 10,
-      isOvertime,
-      isShortHours,
-      activities,
-    });
-  }
-
-  return records.reverse();
-};
-
 // Utility functions for backend data conversion
 const convertBackendToFrontend = (
   backendData: BackendAttendanceData
@@ -322,6 +159,32 @@ const convertBackendToFrontend = (
   const isOvertime = totalHours > 8;
   const isShortHours = totalHours < 8;
 
+  // Generate activities based on backend data
+  const activities = [];
+  if (backendData.check_in_time) {
+    activities.push({
+      type: "checkin" as const,
+      time: new Date(backendData.check_in_time).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      description: "Started work session",
+    });
+  }
+
+  if (backendData.check_out_time) {
+    activities.push({
+      type: "checkout" as const,
+      time: new Date(backendData.check_out_time).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      description: "Ended work session",
+    });
+  }
+
   return {
     date: backendData.date,
     checkIn,
@@ -330,8 +193,134 @@ const convertBackendToFrontend = (
     breakHours,
     isOvertime,
     isShortHours,
-    activities: [], // Backend doesn't track activities yet, so default to empty
+    activities,
   };
+};
+
+// Function to aggregate multiple sessions per day
+const aggregateMultipleSessions = (
+  dayRecords: BackendAttendanceData[],
+  dateKey: string
+): AttendanceRecord => {
+  // Sort records by check-in time
+  const sortedRecords = dayRecords.sort((a, b) => {
+    if (!a.check_in_time) return 1;
+    if (!b.check_in_time) return -1;
+    return (
+      new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
+    );
+  });
+
+  // Get first check-in and last check-out
+  const firstCheckIn = sortedRecords[0].check_in_time;
+  const lastCheckOut = sortedRecords[sortedRecords.length - 1].check_out_time;
+
+  // Calculate total hours from all sessions
+  let totalHours = 0;
+  dayRecords.forEach((record) => {
+    if (record.check_in_time && record.check_out_time) {
+      const checkInTime = new Date(record.check_in_time);
+      const checkOutTime = new Date(record.check_out_time);
+      totalHours +=
+        (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+    } else if (record.check_in_time) {
+      // If only checked in, calculate hours until now
+      const checkInTime = new Date(record.check_in_time);
+      const now = new Date();
+      totalHours += (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+    }
+  });
+
+  // Generate activities from all sessions
+  const activities: Array<{
+    type: "checkin" | "checkout" | "break_start" | "break_end";
+    time: string;
+    description: string;
+  }> = [];
+
+  dayRecords.forEach((record, index) => {
+    if (record.check_in_time) {
+      activities.push({
+        type: "checkin",
+        time: new Date(record.check_in_time).toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        description: `Session ${index + 1} started`,
+      });
+    }
+
+    if (record.check_out_time) {
+      activities.push({
+        type: "checkout",
+        time: new Date(record.check_out_time).toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        description: `Session ${index + 1} ended`,
+      });
+    }
+  });
+
+  const breakHours = 0; // Backend doesn't track breaks yet
+  const isOvertime = totalHours > 8;
+  const isShortHours = totalHours < 8;
+
+  return {
+    date: dateKey,
+    checkIn: firstCheckIn
+      ? new Date(firstCheckIn).toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null,
+    checkOut: lastCheckOut
+      ? new Date(lastCheckOut).toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null,
+    totalHours,
+    breakHours,
+    isOvertime,
+    isShortHours,
+    activities,
+  };
+};
+
+// Function to get current user's attendance data efficiently
+const getCurrentUserAttendanceData = async (employeeId: number) => {
+  try {
+    // Get today's attendance
+    const todayAttendances = await attendanceAPI.getTodayAttendance();
+    const myTodayAttendances = todayAttendances.filter(
+      (record) => record.employee === employeeId
+    );
+
+    // Get historical data for current user (last 90 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 90);
+
+    const historicalData = await attendanceAPI.getAttendanceByDateRange(
+      startDate.toISOString().split("T")[0],
+      endDate.toISOString().split("T")[0]
+    );
+
+    // Filter for current user
+    const myHistoricalData = historicalData.filter(
+      (record) => record.employee === employeeId
+    );
+
+    return { myTodayAttendances, myHistoricalData };
+  } catch (error) {
+    console.error("Error fetching user attendance data:", error);
+    throw error;
+  }
 };
 
 const calculateHoursFromBackend = (
@@ -854,50 +843,50 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
           return;
         }
 
-        // Get today's attendance from backend
-        // Since we now allow multiple sessions per day, we'll get all today's records
-        const todayAttendances = await attendanceAPI.getTodayAttendance();
-        const myTodayAttendances = todayAttendances.filter(
-          (record) => record.employee === employeeId
+        // Get current user's attendance data efficiently
+        const { myTodayAttendances, myHistoricalData } =
+          await getCurrentUserAttendanceData(employeeId);
+
+        // Group records by date and aggregate multiple sessions per day
+        const recordsByDate = new Map<string, BackendAttendanceData[]>();
+
+        // Add today's records
+        if (myTodayAttendances.length > 0) {
+          recordsByDate.set(getDateString(new Date()), myTodayAttendances);
+        }
+
+        // Add historical records
+        myHistoricalData.forEach((record) => {
+          const dateKey = record.date;
+          if (!recordsByDate.has(dateKey)) {
+            recordsByDate.set(dateKey, []);
+          }
+          recordsByDate.get(dateKey)!.push(record);
+        });
+
+        // Convert grouped records to frontend format
+        const convertedRecords: AttendanceRecord[] = [];
+
+        recordsByDate.forEach((dayRecords, dateKey) => {
+          if (dayRecords.length === 1) {
+            // Single session for the day
+            convertedRecords.push(convertBackendToFrontend(dayRecords[0]));
+          } else {
+            // Multiple sessions for the day - aggregate them
+            const aggregatedRecord = aggregateMultipleSessions(
+              dayRecords,
+              dateKey
+            );
+            convertedRecords.push(aggregatedRecord);
+          }
+        });
+
+        // Sort by date (most recent first)
+        convertedRecords.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
 
-        // Convert backend data to frontend format
-        // For multiple sessions, we'll show the most recent one as "today's record"
-        const todayRecord =
-          myTodayAttendances.length > 0
-            ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
-            : {
-                date: getDateString(new Date()),
-                checkIn: null,
-                checkOut: null,
-                totalHours: 0,
-                breakHours: 0,
-                isOvertime: false,
-                isShortHours: false,
-                activities: [],
-              };
-
-        // Get historical data from backend (last 90 days)
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 90);
-
-        const historicalData = await attendanceAPI.getAttendanceByDateRange(
-          startDate.toISOString().split("T")[0],
-          endDate.toISOString().split("T")[0]
-        );
-
-        // Convert all backend records to frontend format
-        // Now we can have multiple records per day, so we don't filter by employee
-        const convertedRecords = historicalData.map(convertBackendToFrontend);
-
-        // Combine today's record with historical data
-        const allRecords = [
-          todayRecord,
-          ...convertedRecords.filter((r) => r.date !== todayRecord.date),
-        ];
-
-        setAttendanceData(allRecords);
+        setAttendanceData(convertedRecords);
       } catch (error) {
         console.error("Error loading attendance data from backend:", error);
         setError(
@@ -919,18 +908,16 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
       if (!employeeId) return;
 
       try {
-        // Get today's attendance from backend
-        const todayAttendances = await attendanceAPI.getTodayAttendance();
-        const myTodayAttendances = todayAttendances.filter(
-          (record) => record.employee === employeeId
-        );
+        // Get current user's attendance data efficiently
+        const { myTodayAttendances } =
+          await getCurrentUserAttendanceData(employeeId);
 
         // Update today's record if it exists
         setAttendanceData((prev) => {
           const todayString = getDateString(new Date());
           const todayRecord =
             myTodayAttendances.length > 0
-              ? convertBackendToFrontend(myTodayAttendances[0]) // Show most recent session
+              ? aggregateMultipleSessions(myTodayAttendances, todayString)
               : {
                   date: todayString,
                   checkIn: null,
@@ -1010,26 +997,18 @@ const AttendancePage: React.FC<AttendancePageProps> = () => {
         />
 
         <div className="relative z-10">
+          <AppNavbar />
           {/* Header */}
           <header className="px-8 py-6">
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Button
-                    variant="bordered"
-                    color="default"
-                    onClick={() => router.push("/dashboard")}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                  >
-                    Back to Dashboard
-                  </Button>
-                  <Calendar size={32} className="text-[#FF6300]" />
                   <h1 className="text-3xl font-bold text-white">Attendance</h1>
                 </div>
                 <Button
                   color="primary"
                   variant="flat"
-                  onClick={goToToday}
+                  onPress={goToToday}
                   className="bg-[#FF6300] text-white hover:bg-orange-600"
                 >
                   Today
