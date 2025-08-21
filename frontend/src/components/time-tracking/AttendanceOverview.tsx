@@ -7,7 +7,7 @@ import {
   ClockIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
-import { DailyActivityChart } from "./DailyActivityChart";
+import { BreakSummary } from "./BreakSummary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { attendanceAPI } from "@/lib/api";
@@ -37,6 +37,11 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAttendanceData = async () => {
+    if (!employee) {
+      setIsLoading(false)
+      return
+    }
+
     try {
       setIsLoading(true);
 
@@ -44,7 +49,12 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
       const todayData = await attendanceAPI.getTodayAttendance();
       setTodayAttendance(todayData || []);
     } catch (error) {
+
       console.error("Failed to fetch attendance data:", error);
+
+      console.error('Failed to fetch attendance data:', error)
+      setTodayAttendance([])
+
     } finally {
       setIsLoading(false);
     }
@@ -161,8 +171,8 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
         </CardContent>
       </Card> */}
 
-      {/* Daily Activity Chart */}
-      <DailyActivityChart currentStatus={currentStatus} />
+      {/* Break Summary */}
+      <BreakSummary currentStatus={currentStatus} />
     </div>
   );
 };

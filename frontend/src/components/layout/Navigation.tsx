@@ -8,6 +8,16 @@ import Image from "next/image";
 import {
   HomeIcon,
   ClockIcon,
+
+import React from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { 
+  HomeIcon, 
+  ClockIcon, 
+  ClipboardDocumentListIcon,
+
   UserIcon,
   ChartBarIcon,
   CalendarDaysIcon,
@@ -26,8 +36,18 @@ const navItems = [
     icon: ClockIcon,
   },
   {
+
     name: "Profile",
     href: "/profile",
+        
+    name: 'Tasks',
+    href: '/tasks',
+    icon: ClipboardDocumentListIcon,
+  },
+  {
+    name: 'Profile',
+    href: '/profile',
+
     icon: UserIcon,
   },
   {
