@@ -199,4 +199,66 @@ export const attendanceAPI = {
     const response = await api.get(`/api/attendance/${attendanceId}/breaks/`)
     return response.data
   },
+
+  getMyTodayDetailed: async () => {
+    const response = await api.get('/api/attendance/my-today-detailed/')
+    return response.data
+  },
+}
+
+export const tasksAPI = {
+  // Task management
+  getMyTasks: async (date?: string, status?: string) => {
+    const params = new URLSearchParams()
+    if (date) params.append('date', date)
+    if (status) params.append('status', status)
+    const response = await api.get(`/api/tasks/?${params.toString()}`)
+    return response.data
+  },
+
+  getTodayTasks: async () => {
+    const response = await api.get('/api/tasks/today/')
+    return response.data
+  },
+
+  getActiveTask: async () => {
+    const response = await api.get('/api/tasks/active/')
+    return response.data
+  },
+
+  createTask: async (data: any) => {
+    const response = await api.post('/api/tasks/create/', data)
+    return response.data
+  },
+
+  getTaskDetail: async (taskId: number) => {
+    const response = await api.get(`/api/tasks/${taskId}/`)
+    return response.data
+  },
+
+  updateTask: async (taskId: number, data: any) => {
+    const response = await api.put(`/api/tasks/${taskId}/update/`, data)
+    return response.data
+  },
+
+  deleteTask: async (taskId: number) => {
+    const response = await api.delete(`/api/tasks/${taskId}/delete/`)
+    return response.data
+  },
+
+  // Task sessions
+  startTask: async (taskId: number, notes?: string) => {
+    const response = await api.post(`/api/tasks/${taskId}/start/`, {
+      notes: notes || ''
+    })
+    return response.data
+  },
+
+  stopTask: async (taskId: number, notes?: string, taskStatus?: string) => {
+    const response = await api.post(`/api/tasks/${taskId}/stop/`, {
+      notes: notes || '',
+      task_status: taskStatus
+    })
+    return response.data
+  },
 }

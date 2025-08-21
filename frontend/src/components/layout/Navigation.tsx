@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { 
   HomeIcon, 
   ClockIcon, 
+  ClipboardDocumentListIcon,
   UserIcon,
   ChartBarIcon,
   CalendarDaysIcon
@@ -23,6 +24,11 @@ const navItems = [
     name: 'Time Tracking',
     href: '/time-tracking',
     icon: ClockIcon,
+  },
+  {
+    name: 'Tasks',
+    href: '/tasks',
+    icon: ClipboardDocumentListIcon,
   },
   {
     name: 'Profile',
