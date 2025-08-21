@@ -46,6 +46,7 @@ export interface ProfileUpdateData {
   first_name?: string;
   last_name?: string;
   address?: string;
+  profile_image?: FormData;
   expected_hours?: number;
 }
 
@@ -61,11 +62,26 @@ export const employeeAPI = {
   async updateCurrentUserProfile(
     data: ProfileUpdateData
   ): Promise<EmployeeProfile> {
-    const response = await api.patch<EmployeeProfileResponse>(
-      "/employees/me/update/",
-      data
-    );
-    return response.data.employee;
+    // If profile_image is FormData, use multipart/form-data
+    if (data.profile_image instanceof FormData) {
+      const response = await api.patch<EmployeeProfileResponse>(
+        "/employees/me/update/",
+        data.profile_image,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      return response.data.employee;
+    } else {
+      // Regular JSON update
+      const response = await api.patch<EmployeeProfileResponse>(
+        "/employees/me/update/",
+        data
+      );
+      return response.data.employee;
+    }
   },
 
   // Get employee by ID
