@@ -1,18 +1,19 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Header } from '@/components/layout/Header'
-import { Navigation } from '@/components/layout/Navigation'
-import { TimeTracker } from '@/components/time-tracking/TimeTracker'
-import { AttendanceOverview } from '@/components/time-tracking/AttendanceOverview'
-import { useAuth } from '@/contexts/AuthContext'
-import { LoginForm } from '@/components/LoginForm'
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { Header } from "@/components/layout/Header";
+import { Navigation } from "@/components/layout/Navigation";
+import { TimeTracker } from "@/components/time-tracking/TimeTracker";
+import { AttendanceOverview } from "@/components/time-tracking/AttendanceOverview";
+import { useAuth } from "@/contexts/AuthContext";
+import { LoginForm } from "@/components/LoginForm";
 
 export default function TimeTrackingPage() {
-  const { isAuthenticated, isLoading } = useAuth()
-  const [currentStatus, setCurrentStatus] = useState<'idle' | 'working' | 'break'>('idle')
+  const { isAuthenticated, isLoading } = useAuth();
+  const [currentStatus, setCurrentStatus] = useState<"idle" | "working" | "break">("idle");
 
+  // Loading & unauthenticated states are handled with profile-page-new styling
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -21,20 +22,20 @@ export default function TimeTrackingPage() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!isAuthenticated) {
-    return <LoginForm />
+    return <LoginForm />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#111111] flex max-w-screen-6xl mx-auto">
       <Navigation />
-      
+
       <div className="flex-1 ml-64">
         <Header />
-        
+
         <main className="p-6">
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}
@@ -44,8 +45,10 @@ export default function TimeTrackingPage() {
               transition={{ duration: 0.5 }}
               className="mb-8"
             >
-              <h1 className="text-3xl font-bold text-gray-900">Time Tracking</h1>
-              <p className="text-gray-600 mt-2">Track your work hours and manage your attendance</p>
+              <h1 className="text-3xl font-bold text-white">Time Tracking</h1>
+              <p className="text-gray-200 mt-2">
+                Track your work hours and manage your attendance
+              </p>
             </motion.div>
 
             <div className="space-y-8">
@@ -73,5 +76,5 @@ export default function TimeTrackingPage() {
         </main>
       </div>
     </div>
-  )
+  );
 }
