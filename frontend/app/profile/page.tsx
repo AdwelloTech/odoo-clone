@@ -6,6 +6,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { employeeAPI, EmployeeProfile } from "@/app/api/employees";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
+import { Button } from "@heroui/button";
+import { LogOut } from "lucide-react";
+import AppNavbar from "@/components/navbar";
+import { Input } from "@heroui/input";
 
 const ProfilePage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -306,51 +310,17 @@ const ProfilePage: React.FC = () => {
 
         <div className="relative z-10 p-4 lg:p-6">
           {/* Header */}
-          <div className="max-w-6xl mx-auto w-full mb-6 lg:mb-8 mt-4">
+          <div className="max-w-[108  rem] mx-auto w-full mb-6 lg:mb-8 mt-4">
+            <AppNavbar />
             {/* Logo */}
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-white text-3xl lg:text-4xl font-bold">
-                adwello
-              </h1>
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="text-white p-3 hover:bg-[#3D3D3D] rounded-lg transition-colors"
-              >
-                <svg
-                  className="w-6 h-6 lg:w-7 lg:h-7"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Navigation and Status Cards Row */}
-            <div className="flex flex-col lg:flex-row justify-between items-center w-full mt-6 lg:mt-10 gap-4 lg:gap-0">
-              {/* Navigation Buttons */}
-              <div className="flex flex-col lg:flex-row gap-3 flex-1 w-full lg:w-auto">
-                <button
-                  onClick={() => router.push("/attendance")}
-                  className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white px-3 lg:px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity h-10 lg:h-12 flex items-center justify-center text-sm lg:text-base"
-                >
-                  View Attendance
-                </button>
-                <button
-                  onClick={() => router.push("/dashboard")}
-                  className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white px-3 lg:px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity h-10 lg:h-12 flex items-center justify-center text-sm lg:text-base"
-                >
-                  Back to Dashboard
-                </button>
-              </div>
-
-              {/* Status Cards */}
+            <div className="flex items-center justify-end mb-4">
+              <Image
+                src={"/logo.png"}
+                width={160}
+                height={160}
+                alt="adwellow"
+                className=""
+              />
             </div>
           </div>
 
@@ -484,7 +454,7 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   {/* Hidden file input */}
-                  <input
+                  <Input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
@@ -504,68 +474,15 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 {/* Navigation Links */}
-                <div className="space-y-3 lg:space-y-4 lg:mt-10">
-                  <button
-                    onClick={() => {
-                      setIsEditing(true);
-                      setSuccessMessage(null); // Clear success message when starting to edit
-                      setError(null); // Clear error message when starting to edit
-                    }}
-                    className="w-full bg-[#FF630059] text-white px-3 lg:px-4 py-3 lg:py-4 rounded-2xl lg:rounded-3xl flex items-center gap-2 lg:gap-3 hover:bg-[#FF630070] transition-all duration-200 shadow-lg"
+                <div className="space-y-3 lg:space-y-4 lg:mt-128 flex justify-center items-center">
+                  <Button
+                    size="lg"
+                    onPress={handleLogout}
+                    startContent={<LogOut />}
+                    className="bg-gradient-to-r px-14 from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg
-                      className="w-5 h-5 lg:w-6 lg:h-6"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="font-medium text-sm lg:text-base">
-                      Personal information
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => router.push("/dashboard")}
-                    className="w-full bg-[#3D3D3D] text-white px-3 lg:px-4 py-3 lg:py-4 rounded-2xl lg:rounded-3xl flex items-center gap-2 lg:gap-3 hover:bg-[#4B4A4A] transition-all duration-200 shadow-lg"
-                  >
-                    <svg
-                      className="w-5 h-5 lg:w-6 lg:h-6"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="font-medium text-sm lg:text-base">
-                      Back to Dashboard
-                    </span>
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full bg-red-600 text-white px-3 lg:px-4 py-3 lg:py-4 rounded-2xl lg:rounded-3xl flex items-center gap-2 lg:gap-3 hover:bg-red-700 transition-all duration-200 shadow-lg"
-                  >
-                    <svg
-                      className="w-5 h-5 lg:w-6 lg:h-6"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="font-medium text-sm lg:text-base">
-                      Log Out
-                    </span>
-                  </button>
+                    Logout
+                  </Button>
                 </div>
               </div>
 
@@ -575,124 +492,108 @@ const ProfilePage: React.FC = () => {
                   Personal Information
                 </h3>
 
-                <form className="space-y-4 lg:space-y-6">
+                <form className="space-y-4 lg:space-y-2">
                   {/* First Name and Last Name */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        First Name
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
                         type="text"
-                        name="firstName"
+                        label="First Name"
+                        labelPlacement="outside-top"
                         value={formData.firstName}
                         onChange={handleInputChange}
                         placeholder="Enter your first name"
                         disabled={!isEditing}
-                        className={`w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200 ${
-                          isEditing
-                            ? "bg-[#00000026] text-[#A3A3A3] hover:bg-[#00000040]"
-                            : "bg-[#00000010] text-gray-400 cursor-not-allowed"
-                        }`}
+                        className="w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200"
                       />
                     </div>
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Last Name
-                      </label>
-                      <input
+                      <Input
                         type="text"
-                        name="lastName"
+                        label="Last Name"
+                        labelPlacement="outside-top"
                         value={formData.lastName}
                         onChange={handleInputChange}
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
                         placeholder="Enter your last name"
                         disabled={!isEditing}
-                        className={`w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200 ${
-                          isEditing
-                            ? "bg-[#00000026] text-[#A3A3A3] hover:bg-[#00000040]"
-                            : "bg-[#00000010] text-gray-400 cursor-not-allowed"
-                        }`}
+                        className="w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200"
                       />
                     </div>
                   </div>
 
                   {/* Email */}
                   <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Email Address
-                    </label>
-                    <input
+                    <Input
+                      classNames={{
+                        label: "text-white font-medium",
+                      }}
+                      labelPlacement="outside-top"
                       type="email"
-                      name="email"
+                      label="Email"
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="your.email@example.com"
                       disabled={true} // Email should not be editable
-                      className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                      className="w-full text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                     />
                   </div>
 
                   {/* Address */}
                   <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Address
-                    </label>
-                    <input
+                    <Input
+                      classNames={{
+                        label: "text-white font-medium",
+                      }}
                       type="text"
-                      name="address"
+                      label="Address"
+                      labelPlacement="outside-top"
                       value={formData.address}
                       onChange={handleInputChange}
                       placeholder="Enter your address"
                       disabled={!isEditing}
-                      className={`w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200 ${
-                        isEditing
-                          ? "bg-[#00000026] text-[#A3A3A3] hover:bg-[#00000040]"
-                          : "bg-[#00000010] text-gray-400 cursor-not-allowed"
-                      }`}
+                      className="w-full px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none focus:outline-none focus:ring-2 focus:ring-[#FF6300] placeholder-gray-500 text-sm lg:text-base transition-all duration-200"
                     />
                   </div>
 
                   {/* Phone Number and Date of Birth */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Phone Number
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
                         type="tel"
-                        name="phone"
+                        label="Phone Number"
+                        labelPlacement="outside-top"
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="Not available in current system"
                         disabled={true}
-                        className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                        className="w-full  text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                       />
                     </div>
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Date of Birth
-                      </label>
                       <div className="relative">
-                        <input
+                        <Input
+                          classNames={{
+                            label: "text-white font-medium",
+                          }}
+                          label="Date of Birth"
+                          labelPlacement="outside-top"
                           type="text"
                           name="dateOfBirth"
                           value={formData.dateOfBirth}
                           onChange={handleInputChange}
                           placeholder="Not available in current system"
                           disabled={true}
-                          className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base pr-10"
+                          className="w-full text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base pr-10"
                         />
-                        <svg
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
                       </div>
                     </div>
                   </div>
@@ -700,29 +601,33 @@ const ProfilePage: React.FC = () => {
                   {/* Role and Department */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Job Role
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
+                        label="Job Role"
+                        labelPlacement="outside-top"
                         type="text"
                         name="role"
                         value={formData.role}
                         placeholder="Your current job role"
                         disabled={true}
-                        className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                        className="w-full text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                       />
                     </div>
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Department
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
+                        label="Department"
+                        labelPlacement="outside-top"
                         type="text"
                         name="department"
                         value={formData.department}
                         placeholder="Your department"
                         disabled={true}
-                        className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                        className="w-full text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                       />
                     </div>
                   </div>
@@ -733,29 +638,33 @@ const ProfilePage: React.FC = () => {
                   {/* Manager and Date Joined */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Manager
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
+                        label="Manager"
+                        labelPlacement="outside-top"
                         type="text"
                         name="manager"
                         value={formData.manager}
                         placeholder="Your direct manager"
                         disabled={true}
-                        className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                        className="w-full  text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                       />
                     </div>
                     <div>
-                      <label className="block text-white text-sm font-medium mb-2">
-                        Date Joined
-                      </label>
-                      <input
+                      <Input
+                        classNames={{
+                          label: "text-white font-medium",
+                        }}
+                        label="Date Joined"
+                        labelPlacement="outside-top"
                         type="text"
                         name="dateJoined"
                         value={formData.dateJoined}
                         placeholder="When you joined the company"
                         disabled={true}
-                        className="w-full bg-[#00000010] text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
+                        className="w-full  text-gray-400 px-3 lg:px-5 py-2 lg:py-3 rounded-xl lg:rounded-2xl border-none cursor-not-allowed text-sm lg:text-base"
                       />
                     </div>
                   </div>
@@ -764,7 +673,8 @@ const ProfilePage: React.FC = () => {
                   <div className="flex justify-end pt-4 gap-3">
                     {isEditing ? (
                       <>
-                        <button
+                        <Button
+                          size="lg"
                           type="button"
                           onClick={() => {
                             setIsEditing(false);
@@ -775,24 +685,26 @@ const ProfilePage: React.FC = () => {
                           className="bg-[#3D3D3D] text-white px-8 py-2 lg:py-3 rounded-xl font-semibold hover:bg-[#4B4A4A] transition-all duration-200 shadow-lg text-base lg:text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          size="lg"
                           type="button"
                           onClick={handleSave}
                           disabled={isLoading}
                           className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white px-8 py-2 lg:py-3 rounded-xl font-semibold hover:opacity-90 transition-all duration-200 shadow-lg text-base lg:text-lg hover:scale-105 transform disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isLoading ? "Saving..." : "Save"}
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
+                      <Button
+                        size="lg"
                         type="button"
                         onClick={() => setIsEditing(true)}
-                        className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white px-8 py-2 lg:py-3 rounded-xl font-semibold hover:opacity-90 transition-all duration-200 shadow-lg text-base lg:text-lg hover:scale-105 transform"
+                        className="bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white px-8 py-2 lg:py-3 rounded-xl font-semibold shadow-lg text-base lg:text-lg"
                       >
                         Edit Profile
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </form>

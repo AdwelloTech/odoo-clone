@@ -21,7 +21,7 @@ const AppNavbar = () => {
   };
 
   const navigationItems = [
-    { name: "Dashboard", href: "/dashboard", icon: "📊" },
+    { name: "Dashboard", href: "/dashboard", icon: " " },
     { name: "Attendance", href: "/attendance", icon: "⏰" },
     { name: "Profile", href: "/profile", icon: "👤" },
   ];

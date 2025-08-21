@@ -944,17 +944,6 @@ const TimeTrackingDashboard: React.FC = () => {
               <AppNavbar />
             </div>
             <div className="flex items-center gap-4">
-              <Button
-                size="sm"
-                color="primary"
-                variant="flat"
-                startContent={<RefreshCw size={16} />}
-                onPress={invalidateCache}
-                disabled={isLoading}
-                className="bg-blue-600/20 text-blue-400 border-blue-600/30 hover:bg-blue-600/30"
-              >
-                {isLoading ? "Syncing..." : "Refresh"}
-              </Button>
               <Image
                 src={"/logo.png"}
                 width={160}
@@ -1018,10 +1007,10 @@ const TimeTrackingDashboard: React.FC = () => {
                   color="primary"
                 />
                 {/*<StatsCard
-                  title="Break Hours"
-                  value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
-                  subtitle="Total Breaks"
-                  color="primary"
+                title="Break Hours"
+                value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
+                subtitle="Total Breaks"
+                color="primary"
                 /> */}
                 <StatsCard
                   title="Remaining Hours"
