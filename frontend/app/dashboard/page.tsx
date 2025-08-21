@@ -14,6 +14,7 @@ import {
   Menu,
   LogIn,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -344,6 +345,9 @@ const TimeTrackingDashboard: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [currentAttendance, setCurrentAttendance] =
     useState<AttendanceRecord | null>(null);
+  const [todayAttendances, setTodayAttendances] = useState<AttendanceRecord[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -380,7 +384,7 @@ const TimeTrackingDashboard: React.FC = () => {
     fetchEmployeeProfile();
   }, [user]);
 
-  // Load saved state from localStorage and sync with backend
+  // Load initial attendance state from backend (only once when component mounts)
   useEffect(() => {
     const loadInitialState = async () => {
       try {
@@ -396,12 +400,34 @@ const TimeTrackingDashboard: React.FC = () => {
           return;
         }
 
-        // Since we now allow multiple sessions per day, we don't need to load
-        // existing attendance records. Each session will create its own record.
-        // Just set the initial state to not checked in
-        setIsCheckedIn(false);
-        setCheckInTime(null);
-        setCurrentAttendance(null);
+        // Only fetch from backend on initial load
+        const today = new Date().toISOString().split("T")[0];
+        const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+        // Store today's attendance records
+        setTodayAttendances(todayAttendances);
+
+        // Find the most recent active session for this employee
+        const activeSession = todayAttendances.find(
+          (att) =>
+            att.employee === employeeId &&
+            att.check_in_time &&
+            !att.check_out_time
+        );
+
+        if (activeSession) {
+          // Restore the active session from backend
+          setCurrentAttendance(activeSession);
+          setIsCheckedIn(true);
+          setCheckInTime(new Date(activeSession.check_in_time!));
+
+          console.log("Found active session from backend:", activeSession);
+        } else {
+          // No active session, start fresh
+          setIsCheckedIn(false);
+          setCheckInTime(null);
+          setCurrentAttendance(null);
+        }
       } catch (error) {
         console.error("Error loading initial state:", error);
         setError("Failed to load attendance data. Please try again.");
@@ -415,49 +441,8 @@ const TimeTrackingDashboard: React.FC = () => {
     }
   }, [employeeId]);
 
-  // Save state to localStorage
-  useEffect(() => {
-    // Only save basic UI state, not attendance data
-    localStorage.setItem("isCheckedIn", isCheckedIn.toString());
-    if (checkInTime) {
-      localStorage.setItem("checkInTime", checkInTime.toISOString());
-    }
-  }, [isCheckedIn, checkInTime]);
-
-  // Real-time sync with backend every 30 seconds
-  useEffect(() => {
-    const syncWithBackend = async () => {
-      if (!currentAttendance || !employeeId) return;
-
-      try {
-        // Update attendance record with current status
-        const updateData: any = {};
-
-        if (isCheckedIn && checkInTime) {
-          updateData.check_in_time = checkInTime.toISOString();
-        }
-
-        if (!isCheckedIn && currentAttendance.check_in_time) {
-          updateData.check_out_time = new Date().toISOString();
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          const updatedAttendance = await attendanceAPI.updateAttendance(
-            currentAttendance.attendance_id,
-            updateData
-          );
-          setCurrentAttendance(updatedAttendance);
-        }
-      } catch (error) {
-        console.error("Error syncing with backend:", error);
-        setError("Failed to sync with backend. Changes saved locally.");
-      }
-    };
-
-    const interval = setInterval(syncWithBackend, 30000); // Sync every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [currentAttendance, employeeId, isCheckedIn, checkInTime]);
+  // Remove the 30-second sync interval since we don't need constant backend queries
+  // The state is managed locally and only synced when actions occur
 
   // Timer logic
   const workTimer = useTimer(isCheckedIn && !isOnBreak);
@@ -483,6 +468,25 @@ const TimeTrackingDashboard: React.FC = () => {
     },
     []
   );
+
+  // Restore activities when we have a restored session
+  useEffect(() => {
+    if (
+      isCheckedIn &&
+      checkInTime &&
+      currentAttendance &&
+      activities.length === 0
+    ) {
+      // We have a restored session but no activities, add the check-in activity
+      addActivity("checkin", "Resumed work session");
+    }
+  }, [
+    isCheckedIn,
+    checkInTime,
+    currentAttendance,
+    activities.length,
+    addActivity,
+  ]);
 
   // Calculate actual hours from activities
   const calculateHoursFromActivities = useCallback(() => {
@@ -564,6 +568,9 @@ const TimeTrackingDashboard: React.FC = () => {
           workTimer.reset();
           breakTimer.reset();
 
+          // Notify other tabs about the attendance change
+          localStorage.setItem("attendance_updated", Date.now().toString());
+
           // Update current attendance
           setCurrentAttendance((prev) =>
             prev
@@ -573,6 +580,19 @@ const TimeTrackingDashboard: React.FC = () => {
                   status: "Checked Out",
                 }
               : null
+          );
+
+          // Update today's attendances to reflect the checkout
+          setTodayAttendances((prev) =>
+            prev.map((att) =>
+              att.attendance_id === currentAttendance.attendance_id
+                ? {
+                    ...att,
+                    check_out_time: new Date().toISOString(),
+                    status: "Checked Out",
+                  }
+                : att
+            )
           );
         }
       } else {
@@ -592,6 +612,9 @@ const TimeTrackingDashboard: React.FC = () => {
 
           setCurrentAttendance(newAttendance);
 
+          // Add to today's attendances
+          setTodayAttendances((prev) => [...prev, newAttendance]);
+
           // Now check in to the new record
           await attendanceAPI.checkIn(newAttendance.attendance_id);
 
@@ -610,6 +633,9 @@ const TimeTrackingDashboard: React.FC = () => {
                 }
               : null
           );
+
+          // Notify other tabs about the attendance change
+          localStorage.setItem("attendance_updated", Date.now().toString());
         } catch (createError: any) {
           console.error("Error creating new attendance record:", createError);
           throw createError;
@@ -702,6 +728,205 @@ const TimeTrackingDashboard: React.FC = () => {
     router.push("/attendance");
   }, [router]);
 
+  // Helper function to check if user has worked today
+  const hasWorkedToday = useCallback(() => {
+    return todayAttendances.length > 0;
+  }, [todayAttendances]);
+
+  // Helper function to calculate total hours worked today
+  const getTotalHoursWorkedToday = useCallback(() => {
+    if (todayAttendances.length === 0) return 0;
+
+    let totalHours = 0;
+
+    // Add hours from completed sessions
+    todayAttendances.forEach((attendance) => {
+      if (attendance.check_in_time && attendance.check_out_time) {
+        const checkIn = new Date(attendance.check_in_time);
+        const checkOut = new Date(attendance.check_out_time);
+        const duration = checkOut.getTime() - checkIn.getTime();
+        totalHours += duration / (1000 * 60 * 60);
+      }
+    });
+
+    // Add hours from current active session if user is checked in
+    if (isCheckedIn && checkInTime) {
+      const currentSessionHours =
+        (new Date().getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+      totalHours += currentSessionHours;
+    }
+
+    return totalHours;
+  }, [todayAttendances, isCheckedIn, checkInTime]);
+
+  // Helper function to calculate remaining hours to reach daily goal
+  const getRemainingHours = useCallback(() => {
+    const totalWorked = getTotalHoursWorkedToday();
+    const expectedHours = 8; // 8 hours daily goal
+    return Math.max(0, expectedHours - totalWorked);
+  }, [getTotalHoursWorkedToday]);
+
+  // Debug logging for empty state logic
+  useEffect(() => {
+    if (activities.length === 0) {
+      console.log("Empty state debug:", {
+        activitiesLength: activities.length,
+        hasWorkedToday: hasWorkedToday(),
+        todayAttendancesLength: todayAttendances.length,
+        totalHoursWorkedToday: getTotalHoursWorkedToday(),
+        isCheckedIn,
+        currentAttendance: !!currentAttendance,
+      });
+    }
+  }, [
+    activities.length,
+    hasWorkedToday,
+    todayAttendances.length,
+    getTotalHoursWorkedToday,
+    isCheckedIn,
+    currentAttendance,
+  ]);
+
+  // Function to refresh attendance state from backend (useful when returning from other pages)
+  const refreshAttendanceState = useCallback(async () => {
+    if (!employeeId) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayAttendances = await attendanceAPI.getTodayAttendance();
+
+      // Update today's attendances
+      setTodayAttendances(todayAttendances);
+
+      const activeSession = todayAttendances.find(
+        (att) =>
+          att.employee === employeeId &&
+          att.check_in_time &&
+          !att.check_out_time
+      );
+
+      if (activeSession) {
+        // Only update state if it's different from current state
+        if (
+          !currentAttendance ||
+          currentAttendance.attendance_id !== activeSession.attendance_id ||
+          currentAttendance.check_in_time !== activeSession.check_in_time
+        ) {
+          setCurrentAttendance(activeSession);
+          setIsCheckedIn(true);
+          setCheckInTime(new Date(activeSession.check_in_time!));
+          console.log("Refreshed active session from backend:", activeSession);
+        } else {
+          console.log(
+            "Current session is already up to date, no state change needed"
+          );
+        }
+      } else {
+        // Only reset state if we currently have an active session
+        if (isCheckedIn || currentAttendance) {
+          setIsCheckedIn(false);
+          setCheckInTime(null);
+          setCurrentAttendance(null);
+          console.log("No active session found, state reset");
+        } else {
+          console.log("Already in correct state (not checked in)");
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing attendance state:", error);
+      setError("Failed to refresh attendance data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [employeeId, currentAttendance, isCheckedIn]);
+
+  // Function to manually invalidate cache and force refresh
+  const invalidateCache = useCallback(() => {
+    console.log("Manually invalidating cache...");
+    setCurrentAttendance(null);
+    setIsCheckedIn(false);
+    setCheckInTime(null);
+    // Trigger a refresh
+    setTimeout(() => {
+      if (employeeId) {
+        refreshAttendanceState();
+      }
+    }, 100);
+  }, [employeeId, refreshAttendanceState]);
+
+  // Validate and fix inconsistent states
+  useEffect(() => {
+    if (currentAttendance && isCheckedIn && !checkInTime) {
+      console.warn(
+        "Inconsistent state detected: attendance exists but no check-in time"
+      );
+      // Fix the inconsistent state
+      if (currentAttendance.check_in_time) {
+        setCheckInTime(new Date(currentAttendance.check_in_time));
+      } else {
+        // If no check-in time in attendance record, reset state
+        setIsCheckedIn(false);
+        setCurrentAttendance(null);
+      }
+    }
+
+    if (isCheckedIn && !currentAttendance) {
+      console.warn(
+        "Inconsistent state detected: checked in but no attendance record"
+      );
+      // Reset to consistent state
+      setIsCheckedIn(false);
+      setCheckInTime(null);
+    }
+  }, [currentAttendance, isCheckedIn, checkInTime]);
+
+  // Cache invalidation: Only refresh when we know there might be changes
+  // This replaces the tab focus refresh with a more intelligent approach
+  useEffect(() => {
+    // Set up a cache invalidation mechanism
+    const invalidateCache = () => {
+      // This will be called when we know the cache might be stale
+      console.log("Cache invalidated, will refresh on next need");
+    };
+
+    // Listen for storage events (if another tab makes changes)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "attendance_updated" && e.newValue) {
+        console.log("Attendance updated in another tab, invalidating cache");
+        // Clear current state to force refresh on next operation
+        setCurrentAttendance(null);
+        setIsCheckedIn(false);
+        setCheckInTime(null);
+      }
+    };
+
+    // Listen for visibility changes (when tab becomes visible)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && employeeId) {
+        // Only refresh if we don't have valid cached data
+        if (!currentAttendance || !checkInTime) {
+          console.log("Tab became visible and no cached data, refreshing...");
+          refreshAttendanceState();
+        } else {
+          console.log(
+            "Tab became visible with valid cached data, no refresh needed"
+          );
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [employeeId, currentAttendance, checkInTime, refreshAttendanceState]);
+
   return (
     <ProtectedRoute>
       <div className="relative bg-[#111111] min-h-screen ">
@@ -764,14 +989,16 @@ const TimeTrackingDashboard: React.FC = () => {
               disabled={!employeeId}
             />
 
-            {/* Stats Cards - Show if there are activities today */}
-            {activities.length > 0 && (
+            {/* Stats Cards - Show if there are activities today OR if user has worked today */}
+            {(activities.length > 0 || hasWorkedToday()) && (
               <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatsCard
                   title="Worked Hours"
-                  value={`${calculateHoursFromActivities().totalHours.toFixed(1)}h`}
+                  value={`${getTotalHoursWorkedToday().toFixed(1)}h`}
                   subtitle="Today"
-                  color="primary"
+                  color={
+                    getTotalHoursWorkedToday() >= 8 ? "success" : "primary"
+                  }
                 />
                 <StatsCard
                   title="Expected Hours"
@@ -780,23 +1007,59 @@ const TimeTrackingDashboard: React.FC = () => {
                   color="primary"
                 />
                 {/*<StatsCard
-                  title="Break Hours"
-                  value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
-                  subtitle="Total Breaks"
-                  color="primary"
+                title="Break Hours"
+                value={`${calculateHoursFromActivities().breakHours.toFixed(1)}h`}
+                subtitle="Total Breaks"
+                color="primary"
                 /> */}
                 <StatsCard
                   title="Remaining Hours"
-                  value={formatTime(
-                    Math.max(
-                      0,
-                      expectedSeconds -
-                        calculateHoursFromActivities().totalHours * 3600
-                    )
-                  )}
+                  value={formatTime(getRemainingHours() * 3600)}
                   subtitle="To reach target"
-                  color="primary"
+                  color={getRemainingHours() === 0 ? "success" : "primary"}
                 />
+              </section>
+            )}
+
+            {/* Daily Progress Bar - Show if user has worked today */}
+            {hasWorkedToday() && (
+              <section className="mb-8">
+                <Card className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50">
+                  <CardBody className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-white">
+                        Daily Progress
+                      </h3>
+                      <span className="text-sm text-gray-400">
+                        {getTotalHoursWorkedToday().toFixed(1)}h / 8h
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full transition-all duration-500 ${
+                          getTotalHoursWorkedToday() >= 8
+                            ? "bg-green-500"
+                            : "bg-gradient-to-r from-[#FF6300] to-[#C23732]"
+                        }`}
+                        style={{
+                          width: `${Math.min(100, (getTotalHoursWorkedToday() / 8) * 100)}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-400">
+                      {getTotalHoursWorkedToday() >= 8 ? (
+                        <span className="text-green-400">
+                          🎉 Daily goal achieved!
+                        </span>
+                      ) : (
+                        <span>
+                          {getRemainingHours().toFixed(1)} hours remaining to
+                          reach your daily goal
+                        </span>
+                      )}
+                    </div>
+                  </CardBody>
+                </Card>
               </section>
             )}
 
@@ -849,21 +1112,73 @@ const TimeTrackingDashboard: React.FC = () => {
             {activities.length === 0 && (
               <section className="text-center py-16">
                 <div className="bg-[#3D3D3D] backdrop-blur-sm border-gray-700/50 rounded-lg p-8 max-w-md mx-auto">
-                  <Clock size={64} className="mx-auto mb-4 text-gray-500" />
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    Ready to Start Your Day?
-                  </h3>
-                  <p className="text-gray-400 mb-4">
-                    Click "Check In" to begin tracking your work hours and
-                    activities.
-                  </p>
-                  {!isInWorkSession && (
-                    <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                      <p className="text-blue-400 text-sm">
-                        💡 You can check in multiple times per day for breaks
-                        and different work sessions.
+                  {hasWorkedToday() ? (
+                    // User has worked today but no current activities
+                    <>
+                      <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                      {getTotalHoursWorkedToday() >= 8 ? (
+                        // User has met their daily goal
+                        <>
+                          <h3 className="text-xl font-semibold text-white mb-2">
+                            Great Work Today! 🎉
+                          </h3>
+                          <p className="text-gray-400 mb-4">
+                            You've completed your daily goal of 8 hours. You can
+                            check in again for overtime work if needed.
+                          </p>
+                        </>
+                      ) : (
+                        // User hasn't met their daily goal yet
+                        <>
+                          <h3 className="text-xl font-semibold text-white mb-2">
+                            Ready for Your Next Session?
+                          </h3>
+                          <p className="text-gray-400 mb-4">
+                            You've worked{" "}
+                            {getTotalHoursWorkedToday().toFixed(1)} hours today.
+                            {getRemainingHours() > 0 ? (
+                              <>
+                                {" "}
+                                Click "Check In" to continue working towards
+                                your daily goal. (
+                                {getRemainingHours().toFixed(1)} hours
+                                remaining)
+                              </>
+                            ) : (
+                              <>
+                                {" "}
+                                Great job! You've exceeded your daily goal. You
+                                can check in for overtime work.
+                              </>
+                            )}
+                          </p>
+                        </>
+                      )}
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-blue-400 text-sm">
+                          💡 You can check in multiple times per day for breaks
+                          and different work sessions.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    // User hasn't worked today at all
+                    <>
+                      <Clock size={64} className="mx-auto mb-4 text-gray-500" />
+                      <h3 className="text-xl font-semibold text-white mb-2">
+                        Ready to Start Your Day?
+                      </h3>
+                      <p className="text-gray-400 mb-4">
+                        Click "Check In" to begin tracking your work hours and
+                        activities.
                       </p>
-                    </div>
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-blue-400 text-sm">
+                          💡 You can check in multiple times per day for breaks
+                          and different work sessions.
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
               </section>
