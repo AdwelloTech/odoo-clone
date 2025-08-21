@@ -211,6 +211,36 @@ def today_attendance(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def my_today_attendance_detailed(request):
+    """Get detailed today's attendance records for current user including breaks"""
+    try:
+        from employees.models import Employee
+        employee = Employee.objects.get(user=request.user)
+        today = timezone.now().date()
+        
+        # Get all attendance records for today for this employee
+        attendance_records = Attendance.objects.filter(
+            employee=employee,
+            date=today
+        ).prefetch_related('breaks').order_by('-check_in_time')
+        
+        serializer = AttendanceDetailSerializer(attendance_records, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Employee.DoesNotExist:
+        return Response({
+            'message': 'Employee record not found',
+            'error': 'No employee profile found for authenticated user'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'message': 'Error fetching detailed attendance',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def current_attendance_status(request):
     """Get current user's active attendance session if any"""
     try:

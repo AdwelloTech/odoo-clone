@@ -4,15 +4,16 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import {
   HomeIcon,
   ClockIcon,
+  ClipboardDocumentListIcon,
   UserIcon,
   ChartBarIcon,
   CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const navItems = [
   {
@@ -24,6 +25,11 @@ const navItems = [
     name: "Time Tracking",
     href: "/time-tracking",
     icon: ClockIcon,
+  },
+  {
+    name: "Tasks",
+    href: "/tasks",
+    icon: ClipboardDocumentListIcon,
   },
   {
     name: "Profile",
