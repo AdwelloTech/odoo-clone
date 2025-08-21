@@ -43,7 +43,7 @@ export const Header: React.FC = () => {
           >
             <div className="text-right">
               <p className="text-sm font-medium text-white">
-                {user?.first_name} {user?.last_name}
+                {employee?.first_name} {employee?.last_name}
               </p>
               <p className="text-xs text-gray-200">
                 {employee?.role?.name || "Employee"}

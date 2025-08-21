@@ -8,14 +8,12 @@ import { TimeTracker } from "@/components/time-tracking/TimeTracker";
 import { AttendanceOverview } from "@/components/time-tracking/AttendanceOverview";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/LoginForm";
-import Image from "next/image";
 
 export default function TimeTrackingPage() {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentStatus, setCurrentStatus] = useState<
-    "idle" | "working" | "break"
-  >("idle");
+  const [currentStatus, setCurrentStatus] = useState<"idle" | "working" | "break">("idle");
 
+  // Loading & unauthenticated states are handled with profile-page-new styling
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -33,13 +31,6 @@ export default function TimeTrackingPage() {
 
   return (
     <div className="min-h-screen bg-[#111111] flex max-w-screen-6xl mx-auto">
-      <Image
-        alt="bg"
-        src="/bg-img.png"
-        className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
-        height={1080}
-        width={1080}
-      />
       <Navigation />
 
       <div className="flex-1 ml-64">

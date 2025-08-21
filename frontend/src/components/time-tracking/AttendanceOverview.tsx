@@ -19,9 +19,7 @@ const getStatusIndicator = (
   checkOutTime: string | null
 ) => {
   if (checkInTime && !checkOutTime) {
-    return (
-      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-    );
+    return <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>;
   } else if (checkInTime && checkOutTime) {
     return <div className="w-3 h-3 bg-gray-400 rounded-full"></div>;
   } else {
@@ -46,10 +44,7 @@ const calculateWorkingHours = (
 };
 
 const formatTimeOnly = (date: Date): string => {
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
 interface AttendanceRecord {
@@ -71,9 +66,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
   currentStatus,
 }) => {
   const { employee } = useAuth();
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>(
-    []
-  );
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAttendanceData = async () => {
@@ -84,8 +77,6 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
 
     try {
       setIsLoading(true);
-
-      // Fetch today's attendance for all employees
       const todayData = await attendanceAPI.getTodayAttendance();
       setTodayAttendance(todayData || []);
     } catch (error) {
@@ -114,8 +105,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
     {
       title: "Team Online",
       value: Array.isArray(todayAttendance)
-        ? todayAttendance.filter((a) => a?.check_in_time && !a?.check_out_time)
-            .length
+        ? todayAttendance.filter((a) => a?.check_in_time && !a?.check_out_time).length
         : 0,
       icon: UserGroupIcon,
     },
@@ -141,12 +131,8 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-white">
-                      {stat.title}
-                    </p>
-                    <p className={`text-xl font-bold text-white`}>
-                      {stat.value}
-                    </p>
+                    <p className="text-sm font-medium text-white">{stat.title}</p>
+                    <p className="text-xl font-bold text-white">{stat.value}</p>
                   </div>
                 </div>
               </CardContent>
@@ -155,7 +141,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
         ))}
       </div>
 
-      {/* Today's Team Activity - Compact & Scrollable */}
+      {/* Today's Team Activity */}
       <Card className="bg-[#1F232B] border-none shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-white">
@@ -164,8 +150,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
               Today's Team Activity
             </div>
             <span className="text-xs text-gray-400 font-normal">
-              {Array.isArray(todayAttendance) ? todayAttendance.length : 0}{" "}
-              members
+              {Array.isArray(todayAttendance) ? todayAttendance.length : 0} members
             </span>
           </CardTitle>
         </CardHeader>
@@ -221,9 +206,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
           ) : (
             <div className="text-center py-6">
               <UserGroupIcon className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-              <p className="text-gray-400 text-sm">
-                No attendance records for today
-              </p>
+              <p className="text-gray-400 text-sm">No attendance records for today</p>
             </div>
           )}
         </CardContent>
