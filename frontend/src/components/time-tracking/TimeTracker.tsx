@@ -21,9 +21,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
   const [totalBreakTime, setTotalBreakTime] = useState(0);
   const [currentBreakTime, setCurrentBreakTime] = useState(0);
   const [status, setStatus] = useState<"idle" | "working" | "break">("idle");
-  const [currentAttendanceId, setCurrentAttendanceId] = useState<number | null>(
-    null
-  );
+  const [currentAttendanceId, setCurrentAttendanceId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -36,17 +34,14 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
       const response = await attendanceAPI.getCurrentAttendanceStatus();
       if (response.attendance) {
         const attendance = response.attendance;
-        setActualWorkTime(attendance.actual_work_seconds || 0); // Use seconds directly
-        setTotalBreakTime(attendance.total_break_seconds || 0); // Use seconds directly
-        setCurrentBreakTime(attendance.current_break_seconds || 0); // Use seconds directly
+        setActualWorkTime(attendance.actual_work_seconds || 0);
+        setTotalBreakTime(attendance.total_break_seconds || 0);
+        setCurrentBreakTime(attendance.current_break_seconds || 0);
 
-        // Total elapsed time since check-in
         if (attendance.check_in_time) {
           const checkInTime = new Date(attendance.check_in_time);
           const now = new Date();
-          const elapsed = Math.floor(
-            (now.getTime() - checkInTime.getTime()) / 1000
-          );
+          const elapsed = Math.floor((now.getTime() - checkInTime.getTime()) / 1000);
           setTimeElapsed(elapsed);
         }
       }
@@ -90,18 +85,12 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
           const attendance = response.attendance;
           const checkInTime = new Date(attendance.check_in_time);
           const now = new Date();
-          const elapsed = Math.floor(
-            (now.getTime() - checkInTime.getTime()) / 1000
-          );
+          const elapsed = Math.floor((now.getTime() - checkInTime.getTime()) / 1000);
 
-          // Restore the timer state
           setCurrentAttendanceId(attendance.attendance_id);
-          // Set status based on break state
           setStatus(response.is_on_break ? "break" : "working");
           setStartTime(checkInTime);
           setTimeElapsed(elapsed);
-
-          // Set work and break times
           setActualWorkTime(attendance.actual_work_seconds || 0);
           setTotalBreakTime(attendance.total_break_seconds || 0);
           setCurrentBreakTime(attendance.current_break_seconds || 0);
@@ -121,21 +110,16 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
 
     setIsLoading(true);
     try {
-      // Create attendance record
       const attendanceData = {
         employee: employee.id,
         date: new Date().toISOString().split("T")[0],
         status: "Present",
       };
 
-      const createResponse = await attendanceAPI.createAttendance(
-        attendanceData
-      );
+      const createResponse = await attendanceAPI.createAttendance(attendanceData);
 
       if (createResponse.attendance) {
         const attendanceId = createResponse.attendance.attendance_id;
-
-        // Check in
         await attendanceAPI.checkIn(attendanceId);
 
         setCurrentAttendanceId(attendanceId);
@@ -158,7 +142,6 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
 
     setIsLoading(true);
     try {
-      // End any active break before clocking out
       if (status === "break") {
         try {
           await attendanceAPI.endBreak(currentAttendanceId);
@@ -188,17 +171,13 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
     setIsLoading(true);
     try {
       if (status === "break") {
-        // End break
         await attendanceAPI.endBreak(currentAttendanceId);
         setStatus("working");
-        setCurrentBreakTime(0); // Reset current break time
+        setCurrentBreakTime(0);
       } else {
-        // Start break
         await attendanceAPI.startBreak(currentAttendanceId);
         setStatus("break");
       }
-
-      // Update time data immediately after break action
       await updateTimeData();
     } catch (error) {
       console.error("Failed to toggle break:", error);
@@ -250,10 +229,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
             transition={{ duration: 0.5 }}
           >
             {/* Circular Progress */}
-            <svg
-              className="w-full h-full transform -rotate-90"
-              viewBox="0 0 200 200"
-            >
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
               <circle
                 cx="100"
                 cy="100"
@@ -277,24 +253,17 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 80}`}
-                strokeDashoffset={
-                  2 * Math.PI * 80 * (1 - (timeElapsed % 3600) / 3600)
-                }
+                strokeDashoffset={2 * Math.PI * 80 * (1 - (timeElapsed % 3600) / 3600)}
                 initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
-                animate={{
-                  strokeDashoffset:
-                    2 * Math.PI * 80 * (1 - (timeElapsed % 3600) / 3600),
-                }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 80 * (1 - (timeElapsed % 3600) / 3600) }}
                 transition={{ duration: 1 }}
               />
             </svg>
 
             {/* Time Display */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-3xl font-bold text-gray-900 font-mono text-white">
-                {formatTime(
-                  status === "break" ? currentBreakTime : actualWorkTime
-                )}
+              <div className="text-3xl font-bold text-gray-900 font-mono">
+                {formatTime(status === "break" ? currentBreakTime : actualWorkTime)}
               </div>
               <div className={`text-sm font-medium ${getStatusColor()}`}>
                 {status === "break" ? "Current Break" : getStatusText()}
@@ -326,12 +295,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
         {/* Action Buttons */}
         <div className="flex flex-col space-y-3">
           {isInitializing ? (
-            <Button
-              disabled={true}
-              size="lg"
-              className="w-full"
-              variant="default"
-            >
+            <Button disabled size="lg" className="w-full" variant="default">
               Loading...
             </Button>
           ) : status === "idle" ? (
@@ -388,18 +352,13 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({ onStatusChange }) => {
                 <ClockIcon className="w-5 h-5 mr-2" />
                 Today&apos;s Goal
               </div>
-              <div className="font-medium text-white">
-                {employee.expected_hours}h
-              </div>
+              <div className="font-medium text-white">{employee.expected_hours}h</div>
             </div>
             <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-gradient-to-r from-[#FF6300] to-[#C23732] h-2 rounded-full transition-all duration-500"
                 style={{
-                  width: `${Math.min(
-                    (actualWorkTime / 3600 / employee.expected_hours) * 100,
-                    100
-                  )}%`,
+                  width: `${Math.min((actualWorkTime / 3600 / employee.expected_hours) * 100, 100)}%`,
                 }}
               />
             </div>

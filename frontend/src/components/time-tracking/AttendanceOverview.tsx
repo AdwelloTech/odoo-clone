@@ -12,16 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { attendanceAPI } from "@/lib/api";
 
-// Utility functions
+// Utility functions from updated_frontend
 const getStatusIndicator = (
   status: string,
   checkInTime: string | null,
   checkOutTime: string | null
 ) => {
   if (checkInTime && !checkOutTime) {
-    return (
-      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-    );
+    return <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>;
   } else if (checkInTime && checkOutTime) {
     return <div className="w-3 h-3 bg-gray-400 rounded-full"></div>;
   } else {
@@ -71,9 +69,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
   currentStatus,
 }) => {
   const { employee } = useAuth();
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>(
-    []
-  );
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAttendanceData = async () => {
@@ -84,8 +80,6 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
 
     try {
       setIsLoading(true);
-
-      // Fetch today's attendance for all employees
       const todayData = await attendanceAPI.getTodayAttendance();
       setTodayAttendance(todayData || []);
     } catch (error) {
@@ -110,19 +104,25 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
           ? "On Break"
           : "Not Working",
       icon: ClockIcon,
+      color:
+        currentStatus === "working"
+          ? "text-green-600"
+          : currentStatus === "break"
+          ? "text-orange-600"
+          : "text-gray-600",
     },
     {
       title: "Team Online",
-      value: Array.isArray(todayAttendance)
-        ? todayAttendance.filter((a) => a?.check_in_time && !a?.check_out_time)
-            .length
-        : 0,
+      value: todayAttendance.filter((a) => a.check_in_time && !a.check_out_time)
+        .length,
       icon: UserGroupIcon,
+      color: "text-blue-600",
     },
     {
-      title: "Total Today",
+      title: "Total Clock Ins Today",
       value: Array.isArray(todayAttendance) ? todayAttendance.length : 0,
       icon: CalendarDaysIcon,
+      color: "text-purple-600",
     },
   ];
 
@@ -141,10 +141,10 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-gray-600">
                       {stat.title}
                     </p>
-                    <p className={`text-xl font-bold text-white`}>
+                    <p className={`text-2xl font-bold ${stat.color}`}>
                       {stat.value}
                     </p>
                   </div>
@@ -155,7 +155,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
         ))}
       </div>
 
-      {/* Today's Team Activity - Compact & Scrollable */}
+      {/* Today's Team Activity */}
       <Card className="bg-[#1F232B] border-none shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-white">
@@ -164,8 +164,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({
               Today's Team Activity
             </div>
             <span className="text-xs text-gray-400 font-normal">
-              {Array.isArray(todayAttendance) ? todayAttendance.length : 0}{" "}
-              members
+              {Array.isArray(todayAttendance) ? todayAttendance.length : 0} members
             </span>
           </CardTitle>
         </CardHeader>
