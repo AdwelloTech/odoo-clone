@@ -12,10 +12,9 @@ import Image from "next/image";
 
 export default function TimeTrackingPage() {
   const { isAuthenticated, isLoading } = useAuth();
-  const [currentStatus, setCurrentStatus] = useState<
-    "idle" | "working" | "break"
-  >("idle");
+  const [currentStatus, setCurrentStatus] = useState<"idle" | "working" | "break">("idle");
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -27,6 +26,7 @@ export default function TimeTrackingPage() {
     );
   }
 
+  // Authentication guard
   if (!isAuthenticated) {
     return <LoginForm />;
   }

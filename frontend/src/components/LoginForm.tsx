@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import Image from "next/image";
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -49,126 +50,67 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Card className="shadow-xl border-0">
-          <CardHeader className="text-center pb-2">
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-4"
-            >
-              <span className="text-white text-2xl font-bold">A</span>
-            </motion.div>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              Welcome to Adwello CRM
-            </CardTitle>
-            <p className="text-gray-600 mt-2">Sign in to manage your time</p>
-          </CardHeader>
+    <section className="relative bg-[#111111] h-screen flex items-center justify-center">
+      <Image
+        alt="bg"
+        src="/bg-img.png"
+        className="absolute top-0 left-0 w-full h-[40vh] rotate-180 opacity-20"
+        height={1080}
+        width={1080}
+      />
 
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="p-3 bg-red-50 border border-red-200 rounded-lg"
-                >
-                  <p className="text-sm text-red-600">{error}</p>
-                </motion.div>
-              )}
+      <div className="relative z-10 flex flex-col items-center w-full max-w-md px-4">
+        {/* Logo */}
+        <div className="w-72 h-72 rounded-full overflow-hidden bg-white flex items-center justify-center border-8 border-[#FF6300]">
+          <img
+            src="/greek.png"
+            className="w-64 h-64 object-contain"
+            alt="Logo"
+          />
+        </div>
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="email"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  Email Address
-                </label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter your email"
-                  className="h-12"
-                />
-              </div>
+        {/* Text */}
+        <div className="text-center mt-6">
+          <p className="text-white font-bold text-4xl mb-2">LOGIN</p>
+          <span className="text-[#9F9999] font-semibold text-2xl">
+            Welcome to Adwello Management
+          </span>
+        </div>
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Enter your password"
-                    className="h-12 pr-12"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? (
-                      <EyeOffIcon className="w-5 h-5" />
-                    ) : (
-                      <EyeIcon className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-12 text-base"
-                size="lg"
-              >
-                {isLoading ? (
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Signing In...
-                  </div>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </form>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Need access? Contact your administrator
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
-          className="text-center text-sm text-gray-500 mt-6"
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 w-full flex flex-col gap-4"
         >
-          © 2024 Adwello CRM. All rights reserved.
-        </motion.p>
-      </motion.div>
-    </div>
+          <Input
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleInputChange}
+            className="bg-white text-black border-none font-bold"
+          />
+          <Input
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleInputChange}
+            className="bg-white text-black border-none font-bold"
+          />
+
+          <Button
+            type="submit"
+            className="w-full bg-gradient-to-r from-[#FF6300] to-[#C23732] text-white hover:bg-orange-600 font-bold text-xl shadow-none cursor-pointer"
+            size="lg"
+            disabled={isLoading}
+          >
+            {isLoading ? "Logging in..." : "Login"}
+          </Button>
+        </form>
+
+        {/* Error */}
+        {error && <p className="text-red-500 mt-4">{error}</p>}
+      </div>
+    </section>
   );
 };
